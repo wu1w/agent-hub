@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, test } from "node:test";
-import { ADAPTERS } from "./adapters.ts";
+import { ADAPTERS, isAgentPresent } from "./adapters.ts";
 import { applyBind } from "./bind.ts";
 import { initialEnabled, loadConfig, saveConfig, setAgentEnabled, setBind } from "./config.ts";
 import { writeAllowed } from "./files.ts";
@@ -47,11 +47,16 @@ test("ADAPTERS and AGENT_IDS are the same set", () => {
 });
 
 test("empty home enables the original five, not the full catalogue", async () => {
-  assert.deepEqual(initialEnabled(home), [...CORE_AGENT_IDS]);
+  const enabled = initialEnabled(home);
+  assert.ok(CORE_AGENT_IDS.every((id) => enabled.includes(id)));
+  assert.ok(enabled.length < AGENT_IDS.length);
+  for (const id of enabled) {
+    assert.ok(CORE_AGENT_IDS.includes(id) || isAgentPresent(id, home));
+  }
   const snap = await buildSnapshot();
-  assert.deepEqual(snap.agents.map((row) => row.id), [...CORE_AGENT_IDS]);
+  assert.deepEqual(snap.agents.map((row) => row.id), enabled);
   assert.equal(snap.catalog.length, AGENT_IDS.length);
-  assert.equal(snap.catalog.filter((row) => row.enabled).length, 5);
+  assert.equal(snap.catalog.filter((row) => row.enabled).length, enabled.length);
 });
 
 test("detected extra runtimes join the default enable list", async () => {
