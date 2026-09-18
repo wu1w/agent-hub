@@ -1,0 +1,18 @@
+(node:28548) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+REPRODUCED F01 excluded skill stays linked while status says excluded
+REPRODUCED F02 default_targets ignored
+REPRODUCED F03 global adopt removes Own skill without relinking
+REPRODUCED F04 repair overwrites valid foreign symlink
+REPRODUCED F05 vendor symlink adopted and vendor file writable
+REPRODUCED F06 project alpha injection contains beta
+REPRODUCED F07 Hyper Hub Ctx has no projection
+REPRODUCED F08 identity save has no backup
+REPRODUCED F09 known vault value copied into index and handoff
+REPRODUCED F10 executed cross-agent command carries no handoff prompt
+Agent Hub  http://127.0.0.1:56622
+REPRODUCED F11 unauthenticated HTTP exposes full vault despite empty grants
+REPRODUCED F11 cross-origin simple POST accepted
+REPRODUCED F13 Own to Hub accepted without migration mode
+REPRODUCED F13 failed delivery leaves binding committed
+REPRODUCED F12 empty enabled list reactivates all five agents

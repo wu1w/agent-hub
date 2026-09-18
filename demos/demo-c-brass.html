@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Hub · Demo C 黄铜终端</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #161513;
+  --bg-2: #1c1a17;
+  --panel: #211e1a;
+  --panel-2: #262220;
+  --line: #37322b;
+  --line-soft: #2c2823;
+  --ink: #ece6d8;
+  --mute: #9a9284;
+  --dim: #6b6459;
+  --brass: #c4a35a;
+  --brass-soft: rgb(196 163 90 / 0.12);
+  --danger: #c45c4a;
+  --ok: #7f9a6b;
+  --sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+  --serif: "Noto Serif SC", serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius: 3px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 13.5px/1.5 var(--sans); }
+::selection { background: rgb(196 163 90 / 0.3); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 1.5px solid var(--brass); outline-offset: 1px; }
+
+/* ---------- top ---------- */
+.top {
+  display: flex; align-items: center; gap: 24px;
+  padding: 0 22px; height: 56px;
+  border-bottom: 1px solid var(--line); background: var(--bg-2);
+}
+.brand { display: flex; gap: 11px; align-items: center; }
+.mark {
+  width: 20px; height: 20px; border: 1px solid var(--brass);
+  background:
+    linear-gradient(var(--brass), var(--brass)) 3px 9px / 12px 1px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 9px 3px / 1px 12px no-repeat;
+}
+.brand h1 { margin: 0; font: 700 17px var(--serif); letter-spacing: 0.04em; }
+.brand .k { font: 500 9px var(--mono); letter-spacing: 0.18em; color: var(--brass); text-transform: uppercase; display: block; }
+.cmdk {
+  flex: 1; max-width: 420px; margin: 0 auto;
+  display: flex; align-items: center; gap: 9px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg); padding: 7px 12px; color: var(--dim); font-size: 12.5px;
+}
+.cmdk kbd {
+  margin-left: auto; font: 10px var(--mono); color: var(--mute);
+  border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 1px 5px;
+}
+.top-right { display: flex; align-items: center; gap: 12px; font: 10.5px var(--mono); color: var(--dim); }
+
+/* ---------- status strip ---------- */
+.strip {
+  display: flex; gap: 0; border-bottom: 1px solid var(--line);
+  background: var(--bg-2); overflow-x: auto;
+}
+.strip .it {
+  padding: 9px 20px; border-right: 1px solid var(--line-soft);
+  font: 10.5px var(--mono); color: var(--mute); white-space: nowrap;
+}
+.strip .it b { color: var(--ink); font-weight: 600; margin-right: 5px; }
+.strip .it.warn b { color: var(--brass); }
+.strip .it.bad b { color: var(--danger); }
+.strip .it.ok b { color: var(--ok); }
+
+.page { padding: 22px 22px 50px; max-width: 1280px; margin: 0 auto; }
+.hidden { display: none !important; }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+.tabs button {
+  padding: 9px 18px; font-size: 13px; color: var(--mute);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button.on { color: var(--brass); border-bottom-color: var(--brass); }
+.tabs .spacer { flex: 1; }
+.tabs .mini { font: 10px var(--mono); color: var(--dim); align-self: center; }
+
+/* ---------- overview ---------- */
+.ov { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.panel-h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 12px 16px; border-bottom: 1px solid var(--line-soft);
+}
+.panel-h h2 { margin: 0; font: 700 15px var(--serif); letter-spacing: 0.02em; }
+.panel-h .hint { font-size: 11.5px; color: var(--dim); }
+.matrix { width: 100%; border-collapse: collapse; }
+.matrix th, .matrix td { padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--line-soft); }
+.matrix thead th { font: 500 9.5px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.matrix tbody tr:hover { background: var(--panel-2); }
+.matrix td.agent { font-weight: 600; white-space: nowrap; }
+.matrix td.agent .id { font: 10px var(--mono); color: var(--dim); margin-left: 8px; }
+.glyph {
+  width: 22px; height: 22px; display: inline-grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 2px;
+  font: 500 9px var(--mono); color: var(--dim); cursor: pointer;
+}
+.glyph.hub { color: var(--brass); border-color: rgb(196 163 90 / 0.55); background: var(--brass-soft); }
+.glyph.own { color: var(--mute); }
+.glyph.off { color: var(--dim); border-style: dashed; }
+.glyph.na { border-color: transparent; color: #3d3831; cursor: default; }
+
+.feed { list-style: none; margin: 0; padding: 0; }
+.feed li {
+  display: grid; grid-template-columns: 64px 1fr; gap: 12px;
+  padding: 11px 16px; border-bottom: 1px solid var(--line-soft); font-size: 12.5px;
+}
+.feed li:last-child { border-bottom: 0; }
+.feed .t { font: 10px var(--mono); color: var(--dim); padding-top: 2px; }
+.feed .tag { font: 500 9px var(--mono); letter-spacing: 0.1em; padding: 1px 6px; border: 1px solid var(--line); border-radius: 2px; margin-right: 7px; }
+.feed .tag.w { color: var(--brass); border-color: rgb(196 163 90 / 0.4); }
+.feed .tag.d { color: var(--danger); border-color: rgb(196 92 74 / 0.4); }
+.feed .tag.o { color: var(--ok); border-color: rgb(127 154 107 / 0.4); }
+
+/* ---------- skills ---------- */
+.split { display: grid; grid-template-columns: minmax(300px, 5fr) 7fr; gap: 16px; align-items: start; }
+.btn {
+  font-size: 12px; color: var(--ink); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 6px 13px; background: var(--panel-2);
+}
+.btn:hover { border-color: #4a4438; }
+.btn.pri { background: var(--brass); border-color: var(--brass); color: #1a1610; font-weight: 600; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.search {
+  width: 100%; font: 12.5px var(--sans); color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 7px 11px; margin-bottom: 8px;
+}
+.skill-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 1px 10px;
+  padding: 9px 13px; cursor: pointer; border-left: 2px solid transparent;
+}
+.skill-row:hover { background: var(--panel-2); }
+.skill-row.sel { background: var(--panel-2); border-left-color: var(--brass); }
+.skill-row .name { font-weight: 600; font-size: 13px; }
+.skill-row .time { font: 10px var(--mono); color: var(--dim); align-self: center; }
+.skill-row .mounts { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
+.mount { font: 9.5px var(--mono); color: var(--mute); border: 1px solid var(--line); border-radius: 2px; padding: 1px 6px; }
+.mount.hub { color: var(--brass); border-color: rgb(196 163 90 / 0.4); }
+.meta { font-size: 12px; color: var(--mute); margin: 0 0 10px; }
+.targets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+.tchip {
+  font: 10.5px var(--mono); color: var(--mute);
+  border: 1px solid var(--line); border-radius: 2px; padding: 3px 10px;
+}
+.tchip.on { color: var(--brass); border-color: rgb(196 163 90 / 0.55); background: var(--brass-soft); }
+textarea {
+  flex: 1; width: 100%; min-height: 330px; resize: vertical;
+  background: var(--bg); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  font: 12px/1.6 var(--mono); padding: 13px;
+}
+.pad { padding: 14px 16px; }
+
+/* ---------- agents ---------- */
+.filterbar { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.filterbar input {
+  font: inherit; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 12px; width: 260px;
+}
+.filterbar .cnt { font: 11px var(--mono); color: var(--dim); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 13px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.card.off { opacity: 0.5; }
+.card-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 11px; }
+.card-top b { font: 700 14.5px var(--serif); }
+.card-top .st { font: 9.5px var(--mono); letter-spacing: 0.1em; }
+.st.inst { color: var(--ok); } .st.miss { color: var(--dim); } .st.memo { color: var(--brass); }
+.bind-row { display: grid; grid-template-columns: 62px 1fr; gap: 6px 12px; align-items: center; }
+.bind-row label { font: 10.5px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; width: fit-content; }
+.seg button { font: 11px var(--mono); padding: 4px 12px; color: var(--mute); background: var(--bg); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--brass-soft); color: var(--brass); font-weight: 600; }
+.seg.dis { opacity: 0.35; pointer-events: none; }
+
+footer { padding: 20px 22px; text-align: center; font: 10.5px var(--mono); color: var(--dim); }
+@media (max-width: 1000px) {
+  .ov, .split { grid-template-columns: 1fr; }
+  .cmdk { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <div><span class="k">本机控制面</span><h1>Agent Hub</h1></div>
+  </div>
+  <button class="cmdk" id="cmdk">搜索 skill、Agent、记忆…<kbd>⌘K</kbd></button>
+  <div class="top-right"><span>~/.agent-hub</span><span>127.0.0.1:3950</span></div>
+</header>
+
+<div class="strip">
+  <div class="it"><b>21</b>SKILLS</div>
+  <div class="it"><b>19</b>AGENTS</div>
+  <div class="it"><b>1,284</b>SESSIONS</div>
+  <div class="it"><b>6</b>VAULT</div>
+  <div class="it bad"><b>1</b>冲突</div>
+  <div class="it warn"><b>2</b>断链</div>
+  <div class="it warn"><b>3</b>未收编</div>
+  <div class="it ok"><b>OK</b>其余正常</div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="on" data-page="overview">概览</button>
+  <button data-page="hub">Hub</button>
+  <button data-page="agents">Agents</button>
+  <span class="spacer"></span>
+  <span class="mini">⌘K 命令 · ⌘S 保存</span>
+</div>
+
+<!-- 概览 -->
+<main class="page" id="page-overview">
+  <div class="ov">
+    <div class="panel">
+      <div class="panel-h"><h2>绑定矩阵</h2><span class="hint">19 Agent × 5 层 · 点格子切换</span></div>
+      <table class="matrix" id="matrix"></table>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h2>动态</h2><span class="hint">最近事件</span></div>
+      <ul class="feed">
+        <li><span class="t">11:20</span><span><span class="tag o">SKILL</span>frontend-design 已保存并同步到 3 个 Agent</span></li>
+        <li><span class="t">10:47</span><span><span class="tag w">BIND</span>cursor · Ctx 改为 Own</span></li>
+        <li><span class="t">09:32</span><span><span class="tag d">冲突</span>review-security 与 Cursor 自有版本冲突</span></li>
+        <li><span class="t">09:12</span><span><span class="tag o">MEM</span>写入长期记忆 → project world</span></li>
+        <li><span class="t">08:58</span><span><span class="tag w">链接</span>hyper 技能目录出现断链</span></li>
+        <li><span class="t">昨天</span><span><span class="tag o">VAULT</span>xai-api 授权给 grok</span></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<!-- Hub -->
+<main class="page hidden" id="page-hub">
+  <div class="split">
+    <div class="panel pad">
+      <div class="panel-h" style="padding:0 0 12px;border-bottom:0">
+        <h2>Skills</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn">扫描</button>
+          <button class="btn">修复断链</button>
+          <button class="btn pri">收编到 Hub</button>
+        </div>
+      </div>
+      <input class="search" id="skill-q" type="search" placeholder="搜索 skill…" />
+      <div id="skill-list"></div>
+    </div>
+    <div class="panel pad">
+      <div class="panel-h" style="padding:0 0 12px;border-bottom:0">
+        <h2 id="ed-title">SKILL.md</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn">外部打开</button>
+          <button class="btn">预览</button>
+          <button class="btn pri" id="btn-save" disabled>保存</button>
+        </div>
+      </div>
+      <p class="meta" id="ed-meta">从左侧选择一份 skill。</p>
+      <div class="targets" id="ed-targets"></div>
+      <textarea id="ed-body" spellcheck="false" placeholder="选择左侧 skill 后在此编辑"></textarea>
+    </div>
+  </div>
+</main>
+
+<!-- Agents -->
+<main class="page hidden" id="page-agents">
+  <div class="filterbar">
+    <input id="agent-q" type="search" placeholder="筛选 Agent：名称或 ID" />
+    <span class="cnt" id="agent-cnt"></span>
+  </div>
+  <div class="cards" id="cards"></div>
+</main>
+
+<footer>AGENT HUB · DEMO C · 黄铜终端 — 现有视觉的精致化演进</footer>
+
+<script>
+const LAYERS = [
+  { id: "skills",   cn: "技能",   vals: ["hub", "own"] },
+  { id: "ctx",      cn: "约定",   vals: ["hub", "own"] },
+  { id: "memory",   cn: "记忆",   vals: ["hub", "own"] },
+  { id: "sessions", cn: "会话",   vals: ["index", "own"] },
+  { id: "vault",    cn: "保险库", vals: ["hub", "own", "off"] },
+];
+const AGENTS = [
+  { id: "grok",      label: "Grok CLI",           inst: true,  bind: { skills: "hub", ctx: "hub", memory: "hub", sessions: "index", vault: "hub" } },
+  { id: "cursor",    label: "Cursor Agent",       inst: true,  bind: { skills: "hub", ctx: "own", memory: "hub", sessions: "index", vault: "own" } },
+  { id: "codex",     label: "Codex",              inst: true,  bind: { skills: "own", ctx: "hub", memory: "hub", sessions: "index", vault: "off" } },
+  { id: "hyper",     label: "grok-hyper",         inst: true,  bind: { skills: "hub", ctx: "own", memory: "own", sessions: "own",   vault: "off" } },
+  { id: "workbuddy", label: "WorkBuddy",          inst: true,  bind: { skills: "hub", ctx: "hub", memory: "hub", sessions: "index", vault: "off" } },
+  { id: "hermes",    label: "Hermes",             inst: false, bind: { skills: "own", ctx: "own", memory: "hub", sessions: "own",   vault: "off" } },
+  { id: "claude",    label: "Claude Code",        inst: true,  bind: { skills: "own", ctx: "own", memory: "hub", sessions: "own",   vault: "own" } },
+  { id: "opencode",  label: "OpenCode",           inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "gemini",    label: "Gemini CLI",         inst: true,  memo: true, bind: { memory: "own" } },
+  { id: "cline",     label: "Cline",              inst: false, memo: true, bind: { memory: "hub" } },
+  { id: "roo",       label: "Roo Code",           inst: false, memo: true, bind: { memory: "own" } },
+  { id: "kilo",      label: "Kilo Code",          inst: false, memo: true, bind: { memory: "own" } },
+  { id: "windsurf",  label: "Windsurf",           inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "copilot",   label: "Copilot CLI",        inst: true,  memo: true, bind: { memory: "own" } },
+  { id: "goose",     label: "Goose",              inst: false, memo: true, bind: { memory: "own" } },
+  { id: "qwen",      label: "Qwen Code",          inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "pi",        label: "Pi",                 inst: false, memo: true, bind: { memory: "own" } },
+  { id: "openclaw",  label: "OpenClaw",           inst: false, memo: true, bind: { memory: "own" } },
+  { id: "aider",     label: "Aider",              inst: true,  memo: true, bind: { memory: "hub" } },
+];
+const SKILLS = [
+  { name: "frontend-design",      updated: "09-17 11:20", targets: ["grok", "cursor", "claude"] },
+  { name: "web-development",      updated: "09-16 21:02", targets: ["grok", "cursor"] },
+  { name: "review-security",      updated: "09-15 09:44", targets: null },
+  { name: "automate",             updated: "09-14 18:30", targets: ["codex"] },
+  { name: "canvas",               updated: "09-12 14:05", targets: null },
+  { name: "create-skill",         updated: "09-11 10:12", targets: ["grok"] },
+  { name: "delegate-to-grok-cli", updated: "09-10 16:40", targets: ["cursor"] },
+  { name: "review-bugbot",        updated: "09-09 11:26", targets: null },
+  { name: "split-to-prs",         updated: "09-08 20:15", targets: ["codex", "grok"] },
+  { name: "statusline",           updated: "09-06 08:52", targets: null },
+];
+const MD = `---\nname: frontend-design\ndescription: >-\n  Guidance for distinctive, intentional visual design.\nhub_targets: [grok, cursor, claude]\n---\n\n# Frontend Design\n\nApproach this as the design lead at a small studio…\n`;
+const GLYPH_TXT = { hub: "H", own: "O", index: "I", off: "–", na: "·" };
+const SEG_TXT = { hub: "Hub", own: "Own", index: "索引", off: "关" };
+
+document.getElementById("tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+  ["overview", "hub", "agents"].forEach(p =>
+    document.getElementById("page-" + p).classList.toggle("hidden", p !== b.dataset.page));
+});
+document.getElementById("cmdk").addEventListener("click", () => alert("演示：命令面板占位"));
+
+const matrix = document.getElementById("matrix");
+matrix.innerHTML =
+  "<thead><tr><th>Agent</th>" + LAYERS.map(l => `<th>${l.cn}</th>`).join("") + "</tr></thead>" +
+  "<tbody>" + AGENTS.map(a => `<tr>
+    <td class="agent">${a.label}<span class="id">${a.id}</span></td>
+    ${LAYERS.map(l => {
+      const v = a.memo && l.id !== "memory" ? "na" : (a.bind[l.id] ?? "na");
+      return `<td><span class="glyph ${v}" data-a="${a.id}" data-l="${l.id}">${GLYPH_TXT[v]}</span></td>`;
+    }).join("")}
+  </tr>`).join("") + "</tbody>";
+matrix.addEventListener("click", (e) => {
+  const c = e.target.closest(".glyph"); if (!c || c.classList.contains("na")) return;
+  const layer = LAYERS.find(l => l.id === c.dataset.l);
+  const agent = AGENTS.find(a => a.id === c.dataset.a);
+  const next = layer.vals[(layer.vals.indexOf(agent.bind[layer.id]) + 1) % layer.vals.length];
+  agent.bind[layer.id] = next;
+  c.className = "glyph " + next; c.textContent = GLYPH_TXT[next];
+});
+
+const listEl = document.getElementById("skill-list");
+function renderSkills(q = "") {
+  listEl.innerHTML = SKILLS.filter(s => s.name.includes(q)).map(s => {
+    const mounts = s.targets === null
+      ? '<span class="mount hub">默认全部</span>'
+      : s.targets.map(t => `<span class="mount hub">${t}</span>`).join("") || '<span class="mount">未挂载</span>';
+    return `<div class="skill-row" data-name="${s.name}">
+      <span class="name">${s.name}</span><span class="time">${s.updated}</span>
+      <div class="mounts">${mounts}</div>
+    </div>`;
+  }).join("");
+}
+renderSkills();
+document.getElementById("skill-q").addEventListener("input", e => renderSkills(e.target.value.trim()));
+listEl.addEventListener("click", (e) => {
+  const row = e.target.closest(".skill-row"); if (!row) return;
+  document.querySelectorAll(".skill-row").forEach(r => r.classList.toggle("sel", r === row));
+  const s = SKILLS.find(x => x.name === row.dataset.name);
+  document.getElementById("ed-title").textContent = s.name + "/SKILL.md";
+  document.getElementById("ed-meta").textContent = `更新于 ${s.updated} · 挂载 ${s.targets === null ? "默认全部 Agent" : s.targets.join(", ")}`;
+  document.getElementById("ed-body").value = MD.replaceAll("frontend-design", s.name);
+  document.getElementById("btn-save").disabled = false;
+  document.getElementById("ed-targets").innerHTML = AGENTS.filter(a => !a.memo).map(a =>
+    `<button class="tchip ${s.targets === null || s.targets.includes(a.id) ? "on" : ""}">${a.id}</button>`).join("");
+});
+document.getElementById("ed-targets").addEventListener("click", (e) => {
+  const t = e.target.closest(".tchip"); if (t) t.classList.toggle("on");
+});
+
+const cardsEl = document.getElementById("cards");
+function segHtml(a, l) {
+  if (a.memo && l.id !== "memory") return `<div class="seg dis"><button>n/a</button></div>`;
+  const cur = a.bind[l.id];
+  return `<div class="seg" data-a="${a.id}" data-l="${l.id}">` +
+    l.vals.map(v => `<button data-v="${v}" class="${v === cur ? "on" : ""}">${SEG_TXT[v]}</button>`).join("") +
+    "</div>";
+}
+function renderAgents(q = "") {
+  const shown = AGENTS.filter(a => (a.label + a.id).toLowerCase().includes(q));
+  cardsEl.innerHTML = shown.map(a => `<div class="card ${a.inst ? "" : "off"}">
+    <div class="card-top">
+      <b>${a.label}</b>
+      <span class="st ${a.inst ? "inst" : "miss"}">${a.inst ? "● 已安装" : "○ 未发现"}</span>
+      ${a.memo ? '<span class="st memo">仅记忆</span>' : ""}
+    </div>
+    <div class="bind-row">
+      ${LAYERS.map(l => `<label>${l.cn}</label>${segHtml(a, l)}`).join("")}
+    </div>
+  </div>`).join("");
+  document.getElementById("agent-cnt").textContent = shown.length + " / " + AGENTS.length;
+}
+renderAgents();
+document.getElementById("agent-q").addEventListener("input", e => renderAgents(e.target.value.trim().toLowerCase()));
+cardsEl.addEventListener("click", (e) => {
+  const b = e.target.closest(".seg button"); if (!b) return;
+  const seg = b.parentElement;
+  AGENTS.find(a => a.id === seg.dataset.a).bind[seg.dataset.l] = b.dataset.v;
+  seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+});
+</script>
+</body>
+</html>

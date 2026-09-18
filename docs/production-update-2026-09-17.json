@@ -1,0 +1,24 @@
+{
+  "url": "http://127.0.0.1:3950",
+  "anonymousPage": "login redirect",
+  "anonymousAPI": 401,
+  "authenticatedPage": 200,
+  "snapshot": 200,
+  "servedAppMatchesSource": true,
+  "skillsStatus": "ready",
+  "vaultStatus": "ready",
+  "warningsCount": 0,
+  "productionAssetHashesUnchanged": true,
+  "temporaryServerStopped": true,
+  "date": "2026-09-17",
+  "pid": 35813,
+  "tests": {
+    "pass": 164,
+    "fail": 0,
+    "skipped": 0
+  },
+  "typecheck": "passed",
+  "frontendSyntax": "passed",
+  "appSha256": "060c2f0d6d8de47266d5345571fca0d69cedd762f1f4587bb0839d1e3162b0c2",
+  "testLog": "/tmp/hub-production-update-tests.log"
+}

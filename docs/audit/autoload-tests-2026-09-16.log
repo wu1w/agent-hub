@@ -1,0 +1,633 @@
+
+> agent-hub@0.1.0 test
+> tsx --test --test-concurrency=1 src/core/*.test.ts src/server.test.ts
+
+TAP version 13
+# (node:36750) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: F01 excluded hub skill is unlinked and status matches
+ok 1 - F01 excluded hub skill is unlinked and status matches
+  ---
+  duration_ms: 127.083583
+  type: 'test'
+  ...
+# Subtest: F02 default_targets apply when hub.targets is absent
+ok 2 - F02 default_targets apply when hub.targets is absent
+  ---
+  duration_ms: 38.330958
+  type: 'test'
+  ...
+# Subtest: F03 global adopt leaves Skills=Own content in place
+ok 3 - F03 global adopt leaves Skills=Own content in place
+  ---
+  duration_ms: 22.482
+  type: 'test'
+  ...
+# Subtest: F04 repair does not replace a valid foreign symlink
+ok 4 - F04 repair does not replace a valid foreign symlink
+  ---
+  duration_ms: 130.233667
+  type: 'test'
+  ...
+# Subtest: F05 vendor symlink is not adopted and cannot be written via Hub
+ok 5 - F05 vendor symlink is not adopted and cannot be written via Hub
+  ---
+  duration_ms: 65.099709
+  type: 'test'
+  ...
+# Subtest: F06 composeInject only includes the selected project
+ok 6 - F06 composeInject only includes the selected project
+  ---
+  duration_ms: 26.664416
+  type: 'test'
+  ...
+# Subtest: F07 Hyper Ctx=Hub writes USER.md
+ok 7 - F07 Hyper Ctx=Hub writes USER.md
+  ---
+  duration_ms: 22.258208
+  type: 'test'
+  ...
+# Subtest: F08 identity save backs up the previous file
+ok 8 - F08 identity save backs up the previous file
+  ---
+  duration_ms: 33.973375
+  type: 'test'
+  ...
+# Subtest: F09 known vault secrets are redacted in the session index and handoff
+ok 9 - F09 known vault secrets are redacted in the session index and handoff
+  ---
+  duration_ms: 33.475916
+  type: 'test'
+  ...
+# Subtest: F10 cross-agent grok argv carries the handoff path
+ok 10 - F10 cross-agent grok argv carries the handoff path
+  ---
+  duration_ms: 0.261167
+  type: 'test'
+  ...
+# Subtest: F12 explicit empty enabled list stays empty and snapshots follow it
+ok 11 - F12 explicit empty enabled list stays empty and snapshots follow it
+  ---
+  duration_ms: 16.972833
+  type: 'test'
+  ...
+# Subtest: F13 Own→Hub requires an explicit mode and failed inject does not commit bind
+ok 12 - F13 Own→Hub requires an explicit mode and failed inject does not commit bind
+  ---
+  duration_ms: 5.786166
+  type: 'test'
+  ...
+# Subtest: nested vendor skills are discovered and native memory import is one-shot
+ok 13 - nested vendor skills are discovered and native memory import is one-shot
+  ---
+  duration_ms: 18.274125
+  type: 'test'
+  ...
+# Subtest: hyper config.toml skills.dir is honored
+ok 14 - hyper config.toml skills.dir is honored
+  ---
+  duration_ms: 0.746083
+  type: 'test'
+  ...
+# Subtest: hub skill list still contains adopted user skills after regressions
+ok 15 - hub skill list still contains adopted user skills after regressions
+  ---
+  duration_ms: 0.558875
+  type: 'test'
+  ...
+# Subtest: five global native loaders receive memory; Own removes only managed content
+ok 16 - five global native loaders receive memory; Own removes only managed content
+  ---
+  duration_ms: 807.907625
+  type: 'test'
+  ...
+# Subtest: all seven workspace loaders isolate project memory and detach cleanly
+ok 17 - all seven workspace loaders isolate project memory and detach cleanly
+  ---
+  duration_ms: 1535.746958
+  type: 'test'
+  ...
+# Subtest: Cursor and Hyper accept a global-only workspace and receive subsequent updates
+ok 18 - Cursor and Hyper accept a global-only workspace and receive subsequent updates
+  ---
+  duration_ms: 469.970166
+  type: 'test'
+  ...
+# Subtest: native limits fail atomically and do not commit binding or replace user memory
+ok 19 - native limits fail atomically and do not commit binding or replace user memory
+  ---
+  duration_ms: 79.768334
+  type: 'test'
+  ...
+# Subtest: Codex override activation migrates the block and leaves both original files intact
+ok 20 - Codex override activation migrates the block and leaves both original files intact
+  ---
+  duration_ms: 234.365875
+  type: 'test'
+  ...
+# Subtest: malformed markers, symlinks and home workspace overlap fail closed
+ok 21 - malformed markers, symlinks and home workspace overlap fail closed
+  ---
+  duration_ms: 171.951541
+  type: 'test'
+  ...
+# Subtest: disabling an adapter retracts native blocks; custom profile roots are supported
+ok 22 - disabling an adapter retracts native blocks; custom profile roots are supported
+  ---
+  duration_ms: 152.298083
+  type: 'test'
+  ...
+# Subtest: Hyper refuses a document its native loader may silently omit
+ok 23 - Hyper refuses a document its native loader may silently omit
+  ---
+  duration_ms: 127.714167
+  type: 'test'
+  ...
+# Subtest: versioned config preserves an explicit original-five adapter subset
+ok 24 - versioned config preserves an explicit original-five adapter subset
+  ---
+  duration_ms: 65.222583
+  type: 'test'
+  ...
+# Subtest: default Hyper ctx is own, matching PRD first-run Own
+ok 25 - default Hyper ctx is own, matching PRD first-run Own
+  ---
+  duration_ms: 1.560708
+  type: 'test'
+  ...
+# Subtest: hubRoot follows HOME when AGENT_HUB_ROOT is unset
+ok 26 - hubRoot follows HOME when AGENT_HUB_ROOT is unset
+  ---
+  duration_ms: 0.168875
+  type: 'test'
+  ...
+# Subtest: setBind keeps custom layers.sessions.index
+ok 27 - setBind keeps custom layers.sessions.index
+  ---
+  duration_ms: 29.961
+  type: 'test'
+  ...
+# Subtest: setBind rejects unknown agent
+ok 28 - setBind rejects unknown agent
+  ---
+  duration_ms: 1.221708
+  type: 'test'
+  ...
+# Subtest: explicit empty enabled list stays empty
+ok 29 - explicit empty enabled list stays empty
+  ---
+  duration_ms: 10.141084
+  type: 'test'
+  ...
+# Subtest: config.toml root relocates hubRoot when AGENT_HUB_ROOT is unset
+ok 30 - config.toml root relocates hubRoot when AGENT_HUB_ROOT is unset
+  ---
+  duration_ms: 0.581333
+  type: 'test'
+  ...
+# Subtest: hyper Ctx=Hub writes USER.md not AGENT.md
+ok 31 - hyper Ctx=Hub writes USER.md not AGENT.md
+  ---
+  duration_ms: 71.080958
+  type: 'test'
+  ...
+# Subtest: ctx hub projects USER.md then own restores the backup
+ok 32 - ctx hub projects USER.md then own restores the backup
+  ---
+  duration_ms: 63.457625
+  type: 'test'
+  ...
+# Subtest: skill and subagent names cannot escape their directories
+ok 33 - skill and subagent names cannot escape their directories
+  ---
+  duration_ms: 26.900166
+  type: 'test'
+  ...
+# Subtest: agents-md requires an absolute cwd
+ok 34 - agents-md requires an absolute cwd
+  ---
+  duration_ms: 12.444292
+  type: 'test'
+  ...
+# Subtest: writeAllowed skill uses the same vendor/outside boundary as writeHubSkill
+ok 35 - writeAllowed skill uses the same vendor/outside boundary as writeHubSkill
+  ---
+  duration_ms: 3.851166
+  type: 'test'
+  ...
+# Subtest: identity save writes a backup that restore can apply
+ok 36 - identity save writes a backup that restore can apply
+  ---
+  duration_ms: 65.044916
+  type: 'test'
+  ...
+# Subtest: restoreIdentity can apply a named backup, including soul
+ok 37 - restoreIdentity can apply a named backup, including soul
+  ---
+  duration_ms: 161.183041
+  type: 'test'
+  ...
+# Subtest: parse bracket targets
+ok 38 - parse bracket targets
+  ---
+  duration_ms: 0.590292
+  type: 'test'
+  ...
+# Subtest: null targets fall back to config default_targets
+ok 39 - null targets fall back to config default_targets
+  ---
+  duration_ms: 0.054042
+  type: 'test'
+  ...
+# Subtest: setHubTargets roundtrip
+ok 40 - setHubTargets roundtrip
+  ---
+  duration_ms: 0.174
+  type: 'test'
+  ...
+# Subtest: explicit wildcard is preserved and not collapsed to defaults
+ok 41 - explicit wildcard is preserved and not collapsed to defaults
+  ---
+  duration_ms: 0.098584
+  type: 'test'
+  ...
+# Subtest: remember appends to global and project files
+ok 42 - remember appends to global and project files
+  ---
+  duration_ms: 92.004083
+  type: 'test'
+  ...
+# Subtest: memory hub inject writes marked file and own removes it
+ok 43 - memory hub inject writes marked file and own removes it
+  ---
+  duration_ms: 95.976792
+  type: 'test'
+  ...
+# Subtest: slugRepo uses home-relative path
+ok 44 - slugRepo uses home-relative path
+  ---
+  duration_ms: 0.213458
+  type: 'test'
+  ...
+# (node:36759) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: R2 conflict plan does not move other Own skills or change bind
+ok 45 - R2 conflict plan does not move other Own skills or change bind
+  ---
+  duration_ms: 57.301292
+  type: 'test'
+  ...
+# Subtest: R2b a unique Own skill adopts and commits Hub bind
+ok 46 - R2b a unique Own skill adopts and commits Hub bind
+  ---
+  duration_ms: 145.560042
+  type: 'test'
+  ...
+# Subtest: R3 soul backup restores SOUL.md not Identity
+ok 47 - R3 soul backup restores SOUL.md not Identity
+  ---
+  duration_ms: 66.687792
+  type: 'test'
+  ...
+# Subtest: R4 explicit wildcard is stored and enables every Hub agent
+ok 48 - R4 explicit wildcard is stored and enables every Hub agent
+  ---
+  duration_ms: 146.703292
+  type: 'test'
+  ...
+# Subtest: R5 Vault Hub bind injects already-granted catalog entries
+ok 49 - R5 Vault Hub bind injects already-granted catalog entries
+  ---
+  duration_ms: 47.759208
+  type: 'test'
+  ...
+# Subtest: R6 vault decrypt failure omits session text instead of copying secrets
+ok 50 - R6 vault decrypt failure omits session text instead of copying secrets
+  ---
+  duration_ms: 12.433125
+  type: 'test'
+  ...
+# Subtest: R7 internal vendor SKILL.md symlink is not adopted or rewritten
+ok 51 - R7 internal vendor SKILL.md symlink is not adopted or rewritten
+  ---
+  duration_ms: 66.396333
+  type: 'test'
+  ...
+# Subtest: R8 saving global memory keeps the last selected project snippet
+ok 52 - R8 saving global memory keeps the last selected project snippet
+  ---
+  duration_ms: 145.308417
+  type: 'test'
+  ...
+# (node:36760) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: T01 real delivery failure rolls back moved files, links and bind
+ok 53 - T01 real delivery failure rolls back moved files, links and bind
+  ---
+  duration_ms: 85.064208
+  type: 'test'
+  ...
+# Subtest: T02 explicit adoption rewires personal symlink without deleting its original target
+ok 54 - T02 explicit adoption rewires personal symlink without deleting its original target
+  ---
+  duration_ms: 84.057584
+  type: 'test'
+  ...
+# Subtest: T03 first import conflict is visible and can adopt an explicitly selected source
+ok 55 - T03 first import conflict is visible and can adopt an explicitly selected source
+  ---
+  duration_ms: 107.051541
+  type: 'test'
+  ...
+# Subtest: T04 separate processes revoke grants and change different binds without lost updates
+ok 56 - T04 separate processes revoke grants and change different binds without lost updates
+  ---
+  duration_ms: 180.561083
+  type: 'test'
+  ...
+# Subtest: T04 stale full-document saves cannot resurrect a revoked grant
+ok 57 - T04 stale full-document saves cannot resurrect a revoked grant
+  ---
+  duration_ms: 41.823875
+  type: 'test'
+  ...
+# Subtest: T05 subagent UI name creates a listed, correctly restorable backup
+ok 58 - T05 subagent UI name creates a listed, correctly restorable backup
+  ---
+  duration_ms: 89.8
+  type: 'test'
+  ...
+# Subtest: T06 untyped legacy backup requires explicit original kind and never defaults to Identity
+ok 59 - T06 untyped legacy backup requires explicit original kind and never defaults to Identity
+  ---
+  duration_ms: 36.414916
+  type: 'test'
+  ...
+# Subtest: T07 Ctx cannot write through a symlink or hard link into Identity
+ok 60 - T07 Ctx cannot write through a symlink or hard link into Identity
+  ---
+  duration_ms: 71.999208
+  type: 'test'
+  ...
+# Subtest: T08 graph scan follows directory aliases and prevents protected mounts
+ok 61 - T08 graph scan follows directory aliases and prevents protected mounts
+  ---
+  duration_ms: 37.805459
+  type: 'test'
+  ...
+# Subtest: T09 environment mapping retains all colliding Chinese and ASCII field values
+ok 62 - T09 environment mapping retains all colliding Chinese and ASCII field values
+  ---
+  duration_ms: 23.43525
+  type: 'test'
+  ...
+# Subtest: T10 visible agent predicate is applied before LIMIT
+ok 63 - T10 visible agent predicate is applied before LIMIT
+  ---
+  duration_ms: 33.297667
+  type: 'test'
+  ...
+# Subtest: T11 two workspaces of the same Agent retain independent project snippets
+ok 64 - T11 two workspaces of the same Agent retain independent project snippets
+  ---
+  duration_ms: 351.083458
+  type: 'test'
+  ...
+# Subtest: T12/T13 real editor functions hide custom multiline fields and preserve a dirty draft on reveal
+ok 65 - T12/T13 real editor functions hide custom multiline fields and preserve a dirty draft on reveal
+  ---
+  duration_ms: 26.238208
+  type: 'test'
+  ...
+# Subtest: crashed writer journal recovers the original file before the next writer proceeds
+ok 66 - crashed writer journal recovers the original file before the next writer proceeds
+  ---
+  duration_ms: 158.534917
+  type: 'test'
+  ...
+# Subtest: atomic write failure keeps previous bytes and rollback handles nested targets
+ok 67 - atomic write failure keeps previous bytes and rollback handles nested targets
+  ---
+  duration_ms: 228.629375
+  type: 'test'
+  ...
+# Subtest: terminal launch script quotes hostile argument text without executing substitutions
+ok 68 - terminal launch script quotes hostile argument text without executing substitutions
+  ---
+  duration_ms: 35.257333
+  type: 'test'
+  ...
+# Subtest: empty capability lists remain empty and forbid Ctx Hub
+ok 69 - empty capability lists remain empty and forbid Ctx Hub
+  ---
+  duration_ms: 35.684416
+  type: 'test'
+  ...
+# Subtest: failed Ctx projection leaves no stale restore state; absent original stays absent
+ok 70 - failed Ctx projection leaves no stale restore state; absent original stays absent
+  ---
+  duration_ms: 102.553625
+  type: 'test'
+  ...
+# Subtest: failed atomic rename retains readable prior Vault ciphertext
+ok 71 - failed atomic rename retains readable prior Vault ciphertext
+  ---
+  duration_ms: 42.888833
+  type: 'test'
+  ...
+# Subtest: explicit conflict resolution cannot delete Skills=Own content
+ok 72 - explicit conflict resolution cannot delete Skills=Own content
+  ---
+  duration_ms: 26.306667
+  type: 'test'
+  ...
+# Subtest: environment field names remain stable when colliding fields are reordered
+ok 73 - environment field names remain stable when colliding fields are reordered
+  ---
+  duration_ms: 23.750375
+  type: 'test'
+  ...
+# (node:36780) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: index scans grok cursor codex hyper without copying jsonl
+ok 74 - index scans grok cursor codex hyper without copying jsonl
+  ---
+  duration_ms: 39.780375
+  type: 'test'
+  ...
+# Subtest: handoff writes markdown and grok_resume plan
+ok 75 - handoff writes markdown and grok_resume plan
+  ---
+  duration_ms: 27.590208
+  type: 'test'
+  ...
+# Subtest: sessions=own are hidden from hub list and block handoff without forceOwn
+ok 76 - sessions=own are hidden from hub list and block handoff without forceOwn
+  ---
+  duration_ms: 41.638416
+  type: 'test'
+  ...
+# Subtest: cursorFolderToCwd maps existing home-relative folder
+ok 77 - cursorFolderToCwd maps existing home-relative folder
+  ---
+  duration_ms: 0.47725
+  type: 'test'
+  ...
+# Subtest: adopt moves skill into hub and links grok
+ok 78 - adopt moves skill into hub and links grok
+  ---
+  duration_ms: 99.523958
+  type: 'test'
+  ...
+# Subtest: repair recreates a missing hub link
+ok 79 - repair recreates a missing hub link
+  ---
+  duration_ms: 34.057208
+  type: 'test'
+  ...
+# Subtest: conflict keep-hub replaces agent copy with symlink
+ok 80 - conflict keep-hub replaces agent copy with symlink
+  ---
+  duration_ms: 49.348083
+  type: 'test'
+  ...
+# Subtest: promote copies a project skill into hub and leaves the repo copy
+ok 81 - promote copies a project skill into hub and leaves the repo copy
+  ---
+  duration_ms: 70.310417
+  type: 'test'
+  ...
+# Subtest: global adopt does not move Skills=Own content
+ok 82 - global adopt does not move Skills=Own content
+  ---
+  duration_ms: 57.168333
+  type: 'test'
+  ...
+# Subtest: adopt with only=workbuddy does not require scanning other agents' copies
+ok 83 - adopt with only=workbuddy does not require scanning other agents' copies
+  ---
+  duration_ms: 149.870125
+  type: 'test'
+  ...
+# Subtest: link-existing skips skills that are not in hub
+ok 84 - link-existing skips skills that are not in hub
+  ---
+  duration_ms: 101.967708
+  type: 'test'
+  ...
+# Subtest: setSkillTargets writes hub.targets and unlinks excluded agents
+ok 85 - setSkillTargets writes hub.targets and unlinks excluded agents
+  ---
+  duration_ms: 116.601333
+  type: 'test'
+  ...
+# Subtest: conflict keep-agent replaces hub with the agent copy
+ok 86 - conflict keep-agent replaces hub with the agent copy
+  ---
+  duration_ms: 99.796375
+  type: 'test'
+  ...
+# Subtest: detach-copy turns a hub symlink into an independent directory
+ok 87 - detach-copy turns a hub symlink into an independent directory
+  ---
+  duration_ms: 48.046042
+  type: 'test'
+  ...
+# Subtest: parse treats 密钥 as secret and 说明 as plaintext
+ok 88 - parse treats 密钥 as secret and 说明 as plaintext
+  ---
+  duration_ms: 2.808125
+  type: 'test'
+  ...
+# Subtest: vault.bin is ciphertext and get requires hub bind plus grant
+ok 89 - vault.bin is ciphertext and get requires hub bind plus grant
+  ---
+  duration_ms: 90.9515
+  type: 'test'
+  ...
+# Subtest: masked markdown save keeps the previous secret and grants
+ok 90 - masked markdown save keeps the previous secret and grants
+  ---
+  duration_ms: 23.496917
+  type: 'test'
+  ...
+# Subtest: empty vault markdown has no example entry
+ok 91 - empty vault markdown has no example entry
+  ---
+  duration_ms: 0.21725
+  type: 'test'
+  ...
+# (node:36783) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Agent Hub  http://127.0.0.1:51138/
+# 本机会话口令（只粘贴到登录框，不要放进 URL）：
+# 4cbf4eb05a6698fe99ac71cf6e17ea9ba53e31b61370051c8ecc33297fdee118
+# Subtest: memory save rolls back source and native projections when a loader limit is exceeded
+ok 92 - memory save rolls back source and native projections when a loader limit is exceeded
+  ---
+  duration_ms: 211.266542
+  type: 'test'
+  ...
+# Subtest: memory scope API can register global-only Cursor automatic loading
+ok 93 - memory scope API can register global-only Cursor automatic loading
+  ---
+  duration_ms: 157.033042
+  type: 'test'
+  ...
+# Subtest: snapshot and invalid bind are wired
+ok 94 - snapshot and invalid bind are wired
+  ---
+  duration_ms: 15.311
+  type: 'test'
+  ...
+# Subtest: file allowlist rejects path escape and skill read does not need agent
+ok 95 - file allowlist rejects path escape and skill read does not need agent
+  ---
+  duration_ms: 9.789209
+  type: 'test'
+  ...
+# Subtest: remember, vault get authorization, and index/handoff round-trip
+ok 96 - remember, vault get authorization, and index/handoff round-trip
+  ---
+  duration_ms: 187.046833
+  type: 'test'
+  ...
+# Subtest: project-skills requires absolute cwd
+ok 97 - project-skills requires absolute cwd
+  ---
+  duration_ms: 66.94725
+  type: 'test'
+  ...
+# Subtest: F11/R1 vault and snapshot require a session; anonymous GET cannot mint a cookie
+ok 98 - F11/R1 vault and snapshot require a session; anonymous GET cannot mint a cookie
+  ---
+  duration_ms: 50.372542
+  type: 'test'
+  ...
+# Subtest: static pages require a session; query token cannot mint a cookie
+ok 99 - static pages require a session; query token cannot mint a cookie
+  ---
+  duration_ms: 7.620042
+  type: 'test'
+  ...
+# Subtest: Vault HTTP writes require a revision and reject stale editors
+ok 100 - Vault HTTP writes require a revision and reject stale editors
+  ---
+  duration_ms: 47.696209
+  type: 'test'
+  ...
+# Subtest: same-host different-port origin is rejected
+ok 101 - same-host different-port origin is rejected
+  ---
+  duration_ms: 0.744708
+  type: 'test'
+  ...
+1..101
+# tests 101
+# suites 0
+# pass 101
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10577.420667

@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Hub · Demo B 白昼工作站</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --line: #e3e5ea;
+  --line-soft: #edeef2;
+  --ink: #181c23;
+  --mute: #6b7280;
+  --faint: #9aa1ad;
+  --acc: #2b59ff;
+  --acc-soft: #eef2ff;
+  --ok: #178a50;
+  --warn: #b07909;
+  --danger: #d64545;
+  --sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+  --disp: "Manrope", var(--sans);
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --r: 10px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 13.5px/1.55 var(--sans); }
+::selection { background: var(--acc-soft); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; border-radius: 4px; }
+
+.layout { display: grid; grid-template-columns: 216px 1fr; min-height: 100vh; }
+
+/* ---------- sidebar ---------- */
+.side {
+  border-right: 1px solid var(--line); background: var(--panel);
+  padding: 20px 14px; display: flex; flex-direction: column; gap: 2px;
+  position: sticky; top: 0; height: 100vh;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 2px 8px 18px; }
+.mark {
+  width: 26px; height: 26px; border-radius: 8px; background: var(--acc);
+  color: #fff; display: grid; place-items: center;
+  font: 800 13px var(--disp);
+}
+.brand b { font: 700 15px var(--disp); letter-spacing: -0.01em; }
+.brand small { display: block; font: 500 10px var(--mono); color: var(--faint); letter-spacing: 0.06em; }
+.side .cap { font: 600 10px var(--sans); letter-spacing: 0.12em; color: var(--faint); padding: 12px 10px 5px; }
+.navb {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 10px; border-radius: 8px; color: var(--mute);
+  font-size: 13px; font-weight: 500; text-align: left; width: 100%;
+}
+.navb:hover { background: var(--bg); color: var(--ink); }
+.navb.on { background: var(--acc-soft); color: var(--acc); font-weight: 600; }
+.navb .n { margin-left: auto; font: 500 10.5px var(--mono); color: var(--faint); }
+.navb.on .n { color: var(--acc); }
+.navb .ic { width: 16px; text-align: center; font-family: var(--mono); font-size: 11px; }
+.side-foot { margin-top: auto; padding: 10px 8px 0; border-top: 1px solid var(--line-soft); }
+.side-foot .p { font: 10.5px var(--mono); color: var(--faint); overflow: hidden; text-overflow: ellipsis; }
+.side-foot .ok { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--mute); margin-top: 5px; }
+.side-foot .ok i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+
+.main { padding: 26px 30px 60px; min-width: 0; }
+.pagehead { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+.pagehead h1 { margin: 0; font: 800 22px var(--disp); letter-spacing: -0.02em; }
+.pagehead .sub { color: var(--mute); font-size: 12.5px; }
+.hidden { display: none !important; }
+
+/* ---------- overview ---------- */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 15px 17px; }
+.stat .k { font-size: 12px; color: var(--mute); }
+.stat .v { font: 800 26px/1.2 var(--disp); letter-spacing: -0.02em; margin-top: 3px; }
+.stat .s { font-size: 11.5px; color: var(--faint); }
+.stat .s.warn { color: var(--warn); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.panel-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 17px; border-bottom: 1px solid var(--line-soft);
+}
+.panel-h h2 { margin: 0; font: 700 14px var(--disp); }
+.panel-h .hint { font-size: 12px; color: var(--faint); }
+
+.matrix { width: 100%; border-collapse: collapse; }
+.matrix th, .matrix td { padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--line-soft); }
+.matrix thead th { font-size: 11px; color: var(--faint); font-weight: 600; letter-spacing: 0.04em; }
+.matrix tbody tr:last-child td { border-bottom: 0; }
+.matrix tbody tr:hover { background: #fafbfd; }
+.matrix td.agent { font-weight: 600; }
+.matrix td.agent .id { font: 10px var(--mono); color: var(--faint); margin-left: 8px; }
+.pill {
+  font: 600 10.5px var(--sans); padding: 2px 10px; border-radius: 99px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.pill.hub { background: var(--acc-soft); color: var(--acc); }
+.pill.own { background: #f1f2f5; color: var(--mute); }
+.pill.off { background: transparent; color: var(--faint); border-color: var(--line); }
+.pill.na { background: transparent; color: #c9cdd5; cursor: default; }
+
+.todos { display: grid; gap: 0; }
+.todo { display: flex; gap: 12px; align-items: baseline; padding: 11px 17px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.todo:last-child { border-bottom: 0; }
+.todo .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; transform: translateY(-1px); }
+.todo .dot.r { background: var(--danger); } .todo .dot.y { background: #e0a92e; } .todo .dot.b { background: var(--acc); }
+.todo .act { margin-left: auto; color: var(--acc); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+
+/* ---------- hub skills ---------- */
+.subtabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; width: fit-content; margin-bottom: 18px; }
+.subtabs button { padding: 6px 16px; border-radius: 7px; color: var(--mute); font-weight: 600; font-size: 12.5px; }
+.subtabs button.on { background: var(--ink); color: #fff; }
+
+.split { display: grid; grid-template-columns: minmax(300px, 5fr) 7fr; gap: 16px; align-items: start; }
+.btn {
+  font-size: 12.5px; font-weight: 600; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; background: var(--panel);
+}
+.btn:hover { border-color: #c7ccd6; background: #fafbfc; }
+.btn.pri { background: var(--acc); border-color: var(--acc); color: #fff; }
+.btn.pri:hover { filter: brightness(1.05); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.search {
+  width: 100%; font: 13px var(--sans); color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 10px;
+}
+.skill-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 1px 10px;
+  padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+}
+.skill-row:hover { background: #fafbfd; }
+.skill-row.sel { background: var(--acc-soft); border-color: #d3dcff; }
+.skill-row .name { font-weight: 700; font-size: 13px; }
+.skill-row .time { font: 10.5px var(--mono); color: var(--faint); align-self: center; }
+.skill-row .mounts { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
+.mount { font: 9.5px var(--mono); color: var(--mute); background: #f1f2f5; border-radius: 4px; padding: 1px 7px; }
+.mount.hub { color: var(--acc); background: var(--acc-soft); }
+
+.meta { font-size: 12px; color: var(--mute); margin: 0 0 12px; }
+.targets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+.tchip {
+  font: 10.5px var(--mono); color: var(--mute);
+  border: 1px solid var(--line); border-radius: 99px; padding: 3px 11px; background: var(--panel);
+}
+.tchip.on { color: #fff; background: var(--acc); border-color: var(--acc); font-weight: 600; }
+textarea {
+  flex: 1; width: 100%; min-height: 340px; resize: vertical;
+  background: #fbfcfd; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+  font: 12px/1.65 var(--mono); padding: 14px;
+}
+.pad { padding: 14px 17px; }
+
+/* ---------- agents ---------- */
+.filterbar { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.filterbar input {
+  font: 13px var(--sans); color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; width: 280px;
+}
+.filterbar .cnt { font: 11px var(--mono); color: var(--faint); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 15px 17px; }
+.card.off { opacity: 0.5; }
+.card-top { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.card-top b { font: 700 14px var(--disp); }
+.badge { font: 600 9.5px var(--sans); padding: 2px 8px; border-radius: 99px; }
+.badge.inst { color: var(--ok); background: #e9f6ef; }
+.badge.miss { color: var(--faint); background: #f1f2f5; }
+.badge.memo { color: var(--warn); background: #faf3e2; }
+.bind-row { display: grid; grid-template-columns: 58px 1fr; gap: 7px 12px; align-items: center; }
+.bind-row label { font-size: 12px; color: var(--mute); }
+.seg { display: inline-flex; background: #f1f2f5; border-radius: 8px; padding: 2px; width: fit-content; }
+.seg button { font-size: 11.5px; font-weight: 600; padding: 4px 13px; color: var(--mute); border-radius: 6px; }
+.seg button.on { background: var(--panel); color: var(--acc); box-shadow: 0 1px 3px rgb(0 0 0 / 0.1); }
+.seg.dis { opacity: 0.4; pointer-events: none; }
+
+footer { padding: 22px 30px; font: 10.5px var(--mono); color: var(--faint); }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .split, .stats { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="side">
+    <div class="brand">
+      <span class="mark">H</span>
+      <div><b>Agent Hub</b><small>CONTROL PLANE</small></div>
+    </div>
+    <p class="cap">总览</p>
+    <button class="navb on" data-page="overview"><span class="ic">◎</span>概览<span class="n" id="n-alert">6</span></button>
+    <p class="cap">Hub 资产</p>
+    <button class="navb" data-page="hub"><span class="ic">▤</span>Skills<span class="n">21</span></button>
+    <button class="navb" data-page="hub"><span class="ic">▦</span>Memory<span class="n">4</span></button>
+    <button class="navb" data-page="hub"><span class="ic">≡</span>Sessions<span class="n">1.2k</span></button>
+    <button class="navb" data-page="hub"><span class="ic">▣</span>Vault<span class="n">6</span></button>
+    <p class="cap">投递</p>
+    <button class="navb" data-page="agents"><span class="ic">⬡</span>Agents<span class="n">19</span></button>
+    <div class="side-foot">
+      <div class="p">~/.agent-hub</div>
+      <div class="ok"><i></i>本机运行 · 127.0.0.1:3950</div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <!-- 概览 -->
+    <section id="page-overview">
+      <div class="pagehead"><h1>概览</h1><span class="sub">一份资产，投递到 19 个 Agent</span></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Skills</div><div class="v">21</div><div class="s warn">3 份尚未收编</div></div>
+        <div class="stat"><div class="k">Agents</div><div class="v">19</div><div class="s">11 个已发现客户端</div></div>
+        <div class="stat"><div class="k">Sessions 索引</div><div class="v">1,284</div><div class="s">原文留在各家目录</div></div>
+        <div class="stat"><div class="k">Vault 条目</div><div class="v">6</div><div class="s">磁盘只有密文</div></div>
+      </div>
+
+      <div class="panel" style="margin-top:18px">
+        <div class="panel-h"><h2>绑定矩阵</h2><span class="hint">点标签切换这一层听 Hub 还是听自己</span></div>
+        <table class="matrix" id="matrix"></table>
+      </div>
+
+      <div class="panel" style="margin-top:18px">
+        <div class="panel-h"><h2>待处理</h2><span class="hint">按严重程度排序</span></div>
+        <div class="todos">
+          <div class="todo"><span class="dot r"></span><span><b>review-security</b> 与 Cursor 自有版本冲突</span><button class="act">解决 →</button></div>
+          <div class="todo"><span class="dot y"></span><span>grok、hyper 各有一条失效软链</span><button class="act">一键修复 →</button></div>
+          <div class="todo"><span class="dot b"></span><span>3 份用户 skill 尚未收编</span><button class="act">去收编 →</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hub -->
+    <section id="page-hub" class="hidden">
+      <div class="pagehead"><h1>Hub</h1><span class="sub">用户可改的内容只存一份</span></div>
+      <div class="subtabs">
+        <button class="on">Skills</button><button>Ctx</button><button>Memory</button><button>Sessions</button><button>Vault</button>
+      </div>
+      <div class="split">
+        <div class="panel pad">
+          <input class="search" id="skill-q" type="search" placeholder="搜索 skill…" />
+          <div id="skill-list"></div>
+        </div>
+        <div class="panel pad">
+          <div class="panel-h" style="padding:0 0 12px;border-bottom:0">
+            <h2 id="ed-title">SKILL.md</h2>
+            <div style="display:flex;gap:8px">
+              <button class="btn">外部打开</button>
+              <button class="btn pri" id="btn-save" disabled>保存</button>
+            </div>
+          </div>
+          <p class="meta" id="ed-meta">从左侧选择一份 skill。</p>
+          <div class="targets" id="ed-targets"></div>
+          <textarea id="ed-body" spellcheck="false" placeholder="选择左侧 skill 后在此编辑"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- Agents -->
+    <section id="page-agents" class="hidden">
+      <div class="pagehead"><h1>Agents</h1><span class="sub">人设永远是各家自己的文件，下拉只决定这一层听谁的</span></div>
+      <div class="filterbar">
+        <input id="agent-q" type="search" placeholder="筛选 Agent：名称或 ID" />
+        <span class="cnt" id="agent-cnt"></span>
+      </div>
+      <div class="cards" id="cards"></div>
+    </section>
+
+    <footer>AGENT HUB · DEMO B · 白昼工作站 — 数据为演示桩</footer>
+  </div>
+</div>
+
+<script>
+const LAYERS = [
+  { id: "skills",   cn: "技能",   vals: ["hub", "own"] },
+  { id: "ctx",      cn: "约定",   vals: ["hub", "own"] },
+  { id: "memory",   cn: "记忆",   vals: ["hub", "own"] },
+  { id: "sessions", cn: "会话",   vals: ["index", "own"] },
+  { id: "vault",    cn: "保险库", vals: ["hub", "own", "off"] },
+];
+const AGENTS = [
+  { id: "grok",      label: "Grok CLI",           inst: true,  bind: { skills: "hub", ctx: "hub", memory: "hub", sessions: "index", vault: "hub" } },
+  { id: "cursor",    label: "Cursor Agent",       inst: true,  bind: { skills: "hub", ctx: "own", memory: "hub", sessions: "index", vault: "own" } },
+  { id: "codex",     label: "Codex",              inst: true,  bind: { skills: "own", ctx: "hub", memory: "hub", sessions: "index", vault: "off" } },
+  { id: "hyper",     label: "grok-hyper",         inst: true,  bind: { skills: "hub", ctx: "own", memory: "own", sessions: "own",   vault: "off" } },
+  { id: "workbuddy", label: "WorkBuddy",          inst: true,  bind: { skills: "hub", ctx: "hub", memory: "hub", sessions: "index", vault: "off" } },
+  { id: "hermes",    label: "Hermes",             inst: false, bind: { skills: "own", ctx: "own", memory: "hub", sessions: "own",   vault: "off" } },
+  { id: "claude",    label: "Claude Code",        inst: true,  bind: { skills: "own", ctx: "own", memory: "hub", sessions: "own",   vault: "own" } },
+  { id: "opencode",  label: "OpenCode",           inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "gemini",    label: "Gemini CLI",         inst: true,  memo: true, bind: { memory: "own" } },
+  { id: "cline",     label: "Cline",              inst: false, memo: true, bind: { memory: "hub" } },
+  { id: "roo",       label: "Roo Code",           inst: false, memo: true, bind: { memory: "own" } },
+  { id: "kilo",      label: "Kilo Code",          inst: false, memo: true, bind: { memory: "own" } },
+  { id: "windsurf",  label: "Windsurf",           inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "copilot",   label: "Copilot CLI",        inst: true,  memo: true, bind: { memory: "own" } },
+  { id: "goose",     label: "Goose",              inst: false, memo: true, bind: { memory: "own" } },
+  { id: "qwen",      label: "Qwen Code",          inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "pi",        label: "Pi",                 inst: false, memo: true, bind: { memory: "own" } },
+  { id: "openclaw",  label: "OpenClaw",           inst: false, memo: true, bind: { memory: "own" } },
+  { id: "aider",     label: "Aider",              inst: true,  memo: true, bind: { memory: "hub" } },
+];
+const SKILLS = [
+  { name: "frontend-design",      updated: "09-17 11:20", targets: ["grok", "cursor", "claude"] },
+  { name: "web-development",      updated: "09-16 21:02", targets: ["grok", "cursor"] },
+  { name: "review-security",      updated: "09-15 09:44", targets: null },
+  { name: "automate",             updated: "09-14 18:30", targets: ["codex"] },
+  { name: "canvas",               updated: "09-12 14:05", targets: null },
+  { name: "create-skill",         updated: "09-11 10:12", targets: ["grok"] },
+  { name: "delegate-to-grok-cli", updated: "09-10 16:40", targets: ["cursor"] },
+  { name: "review-bugbot",        updated: "09-09 11:26", targets: null },
+  { name: "split-to-prs",         updated: "09-08 20:15", targets: ["codex", "grok"] },
+  { name: "statusline",           updated: "09-06 08:52", targets: null },
+];
+const MD = `---\nname: frontend-design\ndescription: >-\n  Guidance for distinctive, intentional visual design.\nhub_targets: [grok, cursor, claude]\n---\n\n# Frontend Design\n\nApproach this as the design lead at a small studio…\n`;
+const PILL_TXT = { hub: "Hub", own: "Own", index: "索引", off: "关", na: "·" };
+
+/* nav */
+document.querySelectorAll(".navb").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".navb").forEach(x => x.classList.toggle("on", x === b));
+  ["overview", "hub", "agents"].forEach(p =>
+    document.getElementById("page-" + p).classList.toggle("hidden", p !== b.dataset.page));
+}));
+
+/* matrix */
+const matrix = document.getElementById("matrix");
+matrix.innerHTML =
+  "<thead><tr><th>Agent</th>" + LAYERS.map(l => `<th>${l.cn}</th>`).join("") + "</tr></thead>" +
+  "<tbody>" + AGENTS.map(a => `<tr>
+    <td class="agent">${a.label}<span class="id">${a.id}</span></td>
+    ${LAYERS.map(l => {
+      const v = a.memo && l.id !== "memory" ? "na" : (a.bind[l.id] ?? "na");
+      return `<td><button class="pill ${v}" data-a="${a.id}" data-l="${l.id}">${PILL_TXT[v]}</button></td>`;
+    }).join("")}
+  </tr>`).join("") + "</tbody>";
+matrix.addEventListener("click", (e) => {
+  const c = e.target.closest(".pill"); if (!c || c.classList.contains("na")) return;
+  const layer = LAYERS.find(l => l.id === c.dataset.l);
+  const agent = AGENTS.find(a => a.id === c.dataset.a);
+  const next = layer.vals[(layer.vals.indexOf(agent.bind[layer.id]) + 1) % layer.vals.length];
+  agent.bind[layer.id] = next;
+  c.className = "pill " + next; c.textContent = PILL_TXT[next];
+});
+
+/* skills */
+const listEl = document.getElementById("skill-list");
+function renderSkills(q = "") {
+  listEl.innerHTML = SKILLS.filter(s => s.name.includes(q)).map(s => {
+    const mounts = s.targets === null
+      ? '<span class="mount hub">默认全部</span>'
+      : s.targets.map(t => `<span class="mount hub">${t}</span>`).join("") || '<span class="mount">未挂载</span>';
+    return `<div class="skill-row" data-name="${s.name}">
+      <span class="name">${s.name}</span><span class="time">${s.updated}</span>
+      <div class="mounts">${mounts}</div>
+    </div>`;
+  }).join("");
+}
+renderSkills();
+document.getElementById("skill-q").addEventListener("input", e => renderSkills(e.target.value.trim()));
+listEl.addEventListener("click", (e) => {
+  const row = e.target.closest(".skill-row"); if (!row) return;
+  document.querySelectorAll(".skill-row").forEach(r => r.classList.toggle("sel", r === row));
+  const s = SKILLS.find(x => x.name === row.dataset.name);
+  document.getElementById("ed-title").textContent = s.name + "/SKILL.md";
+  document.getElementById("ed-meta").textContent = `更新于 ${s.updated} · 挂载 ${s.targets === null ? "默认全部 Agent" : s.targets.join(", ")}`;
+  document.getElementById("ed-body").value = MD.replaceAll("frontend-design", s.name);
+  document.getElementById("btn-save").disabled = false;
+  document.getElementById("ed-targets").innerHTML = AGENTS.filter(a => !a.memo).map(a =>
+    `<button class="tchip ${s.targets === null || s.targets.includes(a.id) ? "on" : ""}">${a.id}</button>`).join("");
+});
+document.getElementById("ed-targets").addEventListener("click", (e) => {
+  const t = e.target.closest(".tchip"); if (t) t.classList.toggle("on");
+});
+
+/* agents */
+const cardsEl = document.getElementById("cards");
+function segHtml(a, l) {
+  if (a.memo && l.id !== "memory") return `<div class="seg dis"><button>n/a</button></div>`;
+  const cur = a.bind[l.id];
+  return `<div class="seg" data-a="${a.id}" data-l="${l.id}">` +
+    l.vals.map(v => `<button data-v="${v}" class="${v === cur ? "on" : ""}">${PILL_TXT[v]}</button>`).join("") +
+    "</div>";
+}
+function renderAgents(q = "") {
+  const shown = AGENTS.filter(a => (a.label + a.id).toLowerCase().includes(q));
+  cardsEl.innerHTML = shown.map(a => `<div class="card ${a.inst ? "" : "off"}">
+    <div class="card-top">
+      <b>${a.label}</b>
+      <span class="badge ${a.inst ? "inst" : "miss"}">${a.inst ? "已安装" : "未发现"}</span>
+      ${a.memo ? '<span class="badge memo">仅记忆</span>' : ""}
+    </div>
+    <div class="bind-row">
+      ${LAYERS.map(l => `<label>${l.cn}</label>${segHtml(a, l)}`).join("")}
+    </div>
+  </div>`).join("");
+  document.getElementById("agent-cnt").textContent = shown.length + " / " + AGENTS.length;
+}
+renderAgents();
+document.getElementById("agent-q").addEventListener("input", e => renderAgents(e.target.value.trim().toLowerCase()));
+cardsEl.addEventListener("click", (e) => {
+  const b = e.target.closest(".seg button"); if (!b) return;
+  const seg = b.parentElement;
+  AGENTS.find(a => a.id === seg.dataset.a).bind[seg.dataset.l] = b.dataset.v;
+  seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+});
+</script>
+</body>
+</html>

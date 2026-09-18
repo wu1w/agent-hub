@@ -1,0 +1,30 @@
+{
+  "name": "agent-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "本机多 Agent 资产控制面",
+  "bin": {
+    "hub": "./src/cli.ts"
+  },
+  "scripts": {
+    "hub": "tsx src/cli.ts",
+    "web": "tsx src/cli.ts web",
+    "test": "tsx --test --test-concurrency=1 src/core/*.test.ts src/server.test.ts",
+    "typecheck": "tsc --noEmit",
+    "check:web": "node --check web/app.js && node --check web/i18n.js && node --check web/errors.js && node --check web/vault-draft.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "jsonc-parser": "^3.3.1",
+    "smol-toml": "^1.4.2",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

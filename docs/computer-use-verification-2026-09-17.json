@@ -1,0 +1,19 @@
+{
+  "date": "2026-09-17",
+  "browser": "Microsoft Edge native UI and Codex in-app browser via cua_repl",
+  "tests": {
+    "tests": 164,
+    "pass": 164,
+    "fail": 0,
+    "skipped": 0
+  },
+  "typecheck": "passed",
+  "frontendSyntax": "passed",
+  "newIssue": "503 left stale session and launch controls; fixed and rechecked through UI",
+  "sha256": {
+    "web/app.js": "060c2f0d6d8de47266d5345571fca0d69cedd762f1f4587bb0839d1e3162b0c2",
+    "src/core/round6-regressions.test.ts": "c22173b39eb5fa800beb9c77d332d6b1b5b654f516d17031a44d4e53949d2bdf",
+    "docs/computer-use-acceptance-2026-09-17.md": "4cfa8d8daa32b0b3fa47032c50b662ceaeed3c99a9df6b1a819b79bc06af550b"
+  },
+  "productionUpdate": "production-update-2026-09-17.json"
+}

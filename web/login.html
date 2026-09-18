@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title data-i18n="title.login">Agent Hub 登录</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <main class="login-page">
+      <div class="login-card">
+        <div class="brand">
+                    <img class="mark" src="/logo.png" width="28" height="28" alt="" />
+          <div><b>Agent Hub</b><small>CONTROL PLANE</small></div>
+        </div>
+        <div class="lang" role="group" aria-label="Language" data-i18n-aria="lang.label">
+          <button type="button" class="lang-btn on" data-lang="zh">中文</button>
+          <button type="button" class="lang-btn" data-lang="en">EN</button>
+        </div>
+        <p class="hint" data-i18n="login.hint">从运行 hub web 的终端复制口令，粘贴到这里。不要把口令写进地址栏。</p>
+        <form id="login-form">
+          <label class="sr" for="login-token" data-i18n="login.token">本机会话口令</label>
+          <input id="login-token" type="password" autocomplete="off" placeholder="会话口令" data-i18n-placeholder="login.placeholder" />
+          <div class="row-actions" style="margin-top:10px">
+            <button type="submit" class="btn pri" style="width:100%;justify-content:center" data-i18n="login.submit">进入</button>
+          </div>
+        </form>
+        <p class="banner" id="login-err" hidden></p>
+      </div>
+    </main>
+    <script type="module">
+      import { t, setLang, getLang, detectLang, applyDom } from "./i18n.js";
+      function apply(lang) {
+        setLang(lang);
+        applyDom(document);
+        document.querySelectorAll(".lang-btn").forEach((btn) => btn.classList.toggle("on", btn.dataset.lang === getLang()));
+      }
+      apply(detectLang());
+      document.querySelectorAll(".lang-btn").forEach((btn) => {
+        btn.addEventListener("click", () => apply(btn.dataset.lang));
+      });
+      const form = document.getElementById("login-form");
+      const input = document.getElementById("login-token");
+      const err = document.getElementById("login-err");
+      form.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        err.hidden = true;
+        const res = await fetch("/api/login", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json", "accept-language": getLang() === "en" ? "en" : "zh-CN" },
+          body: JSON.stringify({ token: input.value }),
+        });
+        if (res.ok) {
+          location.replace("/");
+          return;
+        }
+        err.hidden = false;
+        err.textContent = t("login.bad");
+      });
+    </script>
+  </body>
+</html>

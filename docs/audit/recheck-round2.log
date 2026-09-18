@@ -1,0 +1,12 @@
+(node:29954) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Agent Hub  http://127.0.0.1:50973
+REPRODUCED R1 public bootstrap cookie unlocks full vault
+REPRODUCED R2 conflict leaves Own skill removed and distributed to other Agents
+REPRODUCED R2b fresh unique Own skill is falsely classified as a conflict
+REPRODUCED R3 Soul backup restores into Identity
+REPRODUCED R4 explicit wildcard collapses to restricted config defaults
+REPRODUCED R5 initial Vault Hub binding writes empty authorized catalog
+REPRODUCED R6 unavailable Vault fails open and persists known secret
+REPRODUCED R7 setSkillTargets follows adopted internal SKILL symlink into vendor
+REPRODUCED R8 global memory sync erases previously selected project context

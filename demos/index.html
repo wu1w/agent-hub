@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Hub · 界面 Demo 选择</title>
+<style>
+  :root { --bg:#0f1013; --panel:#17181d; --line:#26282f; --ink:#e8e6e1; --mute:#8a8d96; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+         font:14px/1.6 "PingFang SC","Hiragino Sans GB",sans-serif;
+         display:grid; place-items:center; padding:40px 22px; }
+  main { width:100%; max-width:880px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--mute); margin:0 0 28px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  a.card { display:block; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+           padding:20px; color:inherit; text-decoration:none; transition:border-color .15s, transform .15s; }
+  a.card:hover { border-color:#4a4d58; transform:translateY(-2px); }
+  .sw { height:6px; border-radius:99px; margin-bottom:16px; }
+  h2 { margin:0 0 8px; font-size:16px; }
+  p { margin:0; color:var(--mute); font-size:12.5px; }
+  .tag { display:inline-block; font-size:10.5px; color:var(--ink); border:1px solid var(--line);
+         border-radius:99px; padding:2px 10px; margin:12px 8px 0 0; }
+  @media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Agent Hub · 界面 Demo</h1>
+  <p class="sub">三个方向，同一份演示数据。点开体验（tab 切换、矩阵、绑定开关都可交互），选定后再落到 <code>web/</code> 真实接口上。</p>
+  <div class="grid">
+    <a class="card" href="./demo-a-console.html">
+      <div class="sw" style="background:linear-gradient(90deg,#4ce0c3,#1c2431)"></div>
+      <h2>A · 深空控制台</h2>
+      <p>深色科技风。顶栏导航 + LED 质感绑定矩阵，一眼看清 19 × 5 层的状态。青色为唯一强调色。</p>
+      <span class="tag">深色</span><span class="tag">科技感最强</span>
+    </a>
+    <a class="card" href="./demo-b2-workstation.html" style="border-color:#2b59ff">
+      <div class="sw" style="background:linear-gradient(90deg,#2b59ff,#f4f5f7)"></div>
+      <h2>B2 · 白昼工作站 · 重排版 ✦ 当前选定</h2>
+      <p>浅色 + 任务导向重排：概览首屏待处理、绑定矩阵独立成页、Skills 问题前置为筛选 chips。</p>
+      <span class="tag">浅色</span><span class="tag">已按直觉重排</span>
+    </a>
+    <a class="card" href="./demo-b-daylight.html">
+      <div class="sw" style="background:linear-gradient(90deg,#9db4ff,#f4f5f7)"></div>
+      <h2>B · 白昼工作站（旧版）</h2>
+      <p>第一版浅色布局，保留作对照。</p>
+      <span class="tag">浅色</span><span class="tag">旧版</span>
+    </a>
+    <a class="card" href="./demo-c-brass.html">
+      <div class="sw" style="background:linear-gradient(90deg,#c4a35a,#161513)"></div>
+      <h2>C · 黄铜终端</h2>
+      <p>在现有黄铜暗色基础上精致化：衬线标题、等宽字体、顶部状态条 + ⌘K 命令面板，演进而非推翻。</p>
+      <span class="tag">沿用现有风格</span><span class="tag">改造成本最低</span>
+    </a>
+  </div>
+</main>
+</body>
+</html>

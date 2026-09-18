@@ -1,0 +1,19 @@
+(node:31670) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+REPRODUCED T01 late delivery failure strands adopted Own skill
+REPRODUCED T02 adopting existing personal symlink leaves runtime on old source
+REPRODUCED T03 first import conflict cannot be resolved without preexisting Hub skill
+EVIDENCE T04 revoked grant retained after both writes completed
+REPRODUCED T04 concurrent successful revocations lose updates or corrupt ciphertext
+REPRODUCED T04b concurrent config updates lose successful changes
+REPRODUCED T05 subagent backups without md suffix disappear from restore list
+REPRODUCED T06 legacy Soul backup still restores into Identity
+REPRODUCED T07 Ctx symlink writes through into Identity
+REPRODUCED T08 indirect directory symlink bypasses protected skill tree check
+REPRODUCED T08b adapter mount override can write Hub links into vendor directory
+REPRODUCED T09 Chinese secret field names collide in env injection
+REPRODUCED T10 post-limit filtering hides visible sessions
+REPRODUCED T11 editing one project overrides another Agent project selection
+REPRODUCED T12 client blur masking exposes custom and multiline secrets
+REPRODUCED T13 reveal replaces unsaved Vault draft with persisted text
+SCENARIOS 15, NOT_REPRODUCED 0

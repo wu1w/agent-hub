@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Hub · Demo B2 白昼工作站 · 重排版</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --line: #e4e6eb;
+  --line-soft: #eef0f3;
+  --ink: #171b22;
+  --mute: #68707d;
+  --faint: #9aa1ad;
+  --acc: #2b59ff;
+  --acc-soft: #eef2ff;
+  --ok: #178a50;
+  --ok-soft: #e9f6ef;
+  --warn: #b07909;
+  --warn-soft: #faf3e2;
+  --danger: #d64545;
+  --danger-soft: #fdeeee;
+  --sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+  --disp: "Manrope", var(--sans);
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --r: 10px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 13.5px/1.55 var(--sans); }
+::selection { background: var(--acc-soft); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+.hidden { display: none !important; }
+
+.layout { display: grid; grid-template-columns: 228px 1fr; min-height: 100vh; }
+
+/* ================= sidebar ================= */
+.side {
+  border-right: 1px solid var(--line); background: var(--panel);
+  padding: 18px 12px; display: flex; flex-direction: column; gap: 2px;
+  position: sticky; top: 0; height: 100vh; overflow: auto;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
+.mark {
+  width: 28px; height: 28px; border-radius: 9px; background: var(--acc);
+  color: #fff; display: grid; place-items: center; font: 800 14px var(--disp);
+  flex: none;
+}
+.brand b { font: 800 15px var(--disp); letter-spacing: -0.01em; }
+.brand small { display: block; font: 500 9.5px var(--mono); color: var(--faint); letter-spacing: 0.08em; }
+.side-search {
+  display: flex; align-items: center; gap: 8px; margin: 0 4px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+  padding: 7px 10px; color: var(--faint); font-size: 12px;
+}
+.side-search kbd { margin-left: auto; font: 500 9.5px var(--mono); color: var(--mute); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--panel); }
+.side .cap { font: 600 10px var(--sans); letter-spacing: 0.14em; color: var(--faint); padding: 12px 10px 4px; }
+.navb {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 10px; border-radius: 8px; color: var(--mute);
+  font-size: 13px; font-weight: 500; width: 100%;
+}
+.navb:hover { background: var(--bg); color: var(--ink); }
+.navb.on { background: var(--acc-soft); color: var(--acc); font-weight: 700; }
+.navb .n { margin-left: auto; font: 500 10.5px var(--mono); color: var(--faint); }
+.navb.on .n { color: var(--acc); }
+.navb .n.warn { color: var(--warn); font-weight: 700; }
+.navb .ic { width: 15px; text-align: center; font-family: var(--mono); font-size: 11px; flex: none; }
+.side-foot { margin-top: auto; padding: 12px 10px 2px; border-top: 1px solid var(--line-soft); }
+.side-foot .p { font: 10.5px var(--mono); color: var(--faint); }
+.side-foot .ok { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--mute); margin-top: 5px; }
+.side-foot .ok i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+
+.main { padding: 24px 32px 60px; min-width: 0; max-width: 1220px; }
+
+/* ================= page header ================= */
+.pagehead { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 18px; }
+.pagehead .eyebrow { font: 700 10px var(--mono); letter-spacing: 0.18em; color: var(--faint); text-transform: uppercase; margin: 0 0 2px; }
+.pagehead h1 { margin: 0; font: 800 21px var(--disp); letter-spacing: -0.02em; }
+.pagehead .sub { color: var(--mute); font-size: 12.5px; margin: 4px 0 0; }
+.pagehead .acts { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.btn {
+  font-size: 12.5px; font-weight: 600; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; background: var(--panel);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { border-color: #c7ccd6; background: #fafbfc; }
+.btn.pri { background: var(--acc); border-color: var(--acc); color: #fff; }
+.btn.pri:hover { filter: brightness(1.06); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.panel-h {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 13px 18px; border-bottom: 1px solid var(--line-soft);
+}
+.panel-h h2 { margin: 0; font: 700 14px var(--disp); letter-spacing: -0.01em; }
+.panel-h .hint { font-size: 12px; color: var(--faint); }
+.pad { padding: 14px 18px; }
+
+/* ================= overview ================= */
+.todo-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+.todo-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 15px 17px; border-top: 3px solid var(--line); }
+.todo-card.r { border-top-color: var(--danger); }
+.todo-card.y { border-top-color: #e0a92e; }
+.todo-card.b { border-top-color: var(--acc); }
+.todo-card .k { font-size: 12px; color: var(--mute); }
+.todo-card .v { font: 800 22px var(--disp); margin: 2px 0 4px; }
+.todo-card p { margin: 0 0 10px; font-size: 12.5px; color: var(--mute); }
+.todo-card .act { color: var(--acc); font-weight: 700; font-size: 12.5px; padding: 0; }
+.todo-card .act:hover { text-decoration: underline; }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 13px 17px; }
+.stat .k { font-size: 12px; color: var(--mute); }
+.stat .v { font: 800 24px/1.2 var(--disp); letter-spacing: -0.02em; }
+.stat .s { font-size: 11.5px; color: var(--faint); }
+
+.ov-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.feed { list-style: none; margin: 0; padding: 0; }
+.feed li { display: grid; grid-template-columns: 52px 1fr; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
+.feed li:last-child { border-bottom: 0; }
+.feed .t { font: 10.5px var(--mono); color: var(--faint); padding-top: 2px; }
+.tag { font: 600 9.5px var(--mono); letter-spacing: 0.06em; padding: 1px 7px; border-radius: 4px; margin-right: 7px; }
+.tag.s { color: var(--acc); background: var(--acc-soft); }
+.tag.w { color: var(--warn); background: var(--warn-soft); }
+.tag.d { color: var(--danger); background: var(--danger-soft); }
+.tag.o { color: var(--ok); background: var(--ok-soft); }
+
+.bars { padding: 8px 18px 14px; }
+.bar-row { display: grid; grid-template-columns: 64px 1fr 56px; gap: 12px; align-items: center; padding: 8px 0; }
+.bar-row label { font-size: 12.5px; color: var(--mute); }
+.bar-track { height: 8px; background: var(--line-soft); border-radius: 99px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--acc); border-radius: 99px; }
+.bar-row .n { font: 500 11px var(--mono); color: var(--mute); text-align: right; }
+
+/* ================= skills ================= */
+.chips { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.chip {
+  font-size: 12px; font-weight: 600; color: var(--mute);
+  border: 1px solid var(--line); border-radius: 99px; padding: 5px 13px; background: var(--panel);
+}
+.chip:hover { border-color: #c7ccd6; }
+.chip.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.chip .c { font: 500 10.5px var(--mono); margin-left: 5px; opacity: 0.7; }
+.chip.bad.on { background: var(--danger); border-color: var(--danger); }
+.chip.warn.on { background: #e0a92e; border-color: #e0a92e; }
+
+.split { display: grid; grid-template-columns: minmax(320px, 5fr) 7fr; gap: 14px; align-items: start; }
+.search {
+  width: 100%; font: 13px var(--sans); color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 10px;
+}
+.skill-row {
+  display: grid; grid-template-columns: 8px 1fr auto; gap: 2px 10px; align-items: center;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+}
+.skill-row:hover { background: #fafbfd; }
+.skill-row.sel { background: var(--acc-soft); border-color: #d3dcff; }
+.skill-row .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); grid-row: span 2; }
+.skill-row .dot.r { background: var(--danger); } .skill-row .dot.y { background: #e0a92e; }
+.skill-row .name { font-weight: 700; font-size: 13px; }
+.skill-row .time { font: 10.5px var(--mono); color: var(--faint); }
+.skill-row .mounts { grid-column: 2 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
+.mount { font: 9.5px var(--mono); color: var(--mute); background: #f1f2f5; border-radius: 4px; padding: 1px 7px; }
+.mount.hub { color: var(--acc); background: var(--acc-soft); }
+
+.meta { font-size: 12px; color: var(--mute); margin: 0 0 12px; }
+.meta .path { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.targets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+.tchip {
+  font: 10.5px var(--mono); color: var(--mute);
+  border: 1px solid var(--line); border-radius: 99px; padding: 3px 11px; background: var(--panel);
+}
+.tchip.on { color: #fff; background: var(--acc); border-color: var(--acc); font-weight: 600; }
+textarea {
+  flex: 1; width: 100%; min-height: 320px; resize: vertical;
+  background: #fbfcfd; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+  font: 12px/1.65 var(--mono); padding: 14px;
+}
+.editor-foot { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.editor-foot .spacer { flex: 1; }
+.editor-foot .saved { font: 10.5px var(--mono); color: var(--faint); }
+
+/* ================= matrix ================= */
+.matrix-tools { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--mute); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.matrix-wrap { overflow: auto; }
+.matrix { width: 100%; border-collapse: collapse; min-width: 720px; }
+.matrix th, .matrix td { padding: 8px 16px; text-align: left; border-bottom: 1px solid var(--line-soft); }
+.matrix thead th { font-size: 11px; color: var(--faint); font-weight: 700; letter-spacing: 0.04em; position: sticky; top: 0; background: var(--panel); }
+.matrix tbody tr:last-child td { border-bottom: 0; }
+.matrix tbody tr:hover { background: #fafbfd; }
+.matrix td.agent { font-weight: 700; white-space: nowrap; }
+.matrix td.agent .id { font: 500 10px var(--mono); color: var(--faint); margin-left: 8px; }
+.pill {
+  font: 600 10.5px var(--sans); padding: 2px 11px; border-radius: 99px; cursor: pointer;
+  border: 1px solid transparent; min-width: 44px; text-align: center;
+}
+.pill.hub { background: var(--acc-soft); color: var(--acc); }
+.pill.own { background: #f1f2f5; color: var(--mute); }
+.pill.off { background: transparent; color: var(--faint); border-color: var(--line); }
+.pill.na { background: transparent; color: #c9cdd5; cursor: default; min-width: 0; }
+.pill:not(.na):hover { filter: brightness(0.96); border-color: #c7ccd6; }
+
+/* ================= agents ================= */
+.filterbar { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.filterbar input {
+  font: 13px var(--sans); color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; width: 280px;
+}
+.filterbar .cnt { font: 11px var(--mono); color: var(--faint); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 15px 17px; }
+.card.off { opacity: 0.5; }
+.card-top { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.card-top b { font: 700 14px var(--disp); }
+.badge { font: 600 9.5px var(--sans); padding: 2px 8px; border-radius: 99px; }
+.badge.inst { color: var(--ok); background: var(--ok-soft); }
+.badge.miss { color: var(--faint); background: #f1f2f5; }
+.badge.memo { color: var(--warn); background: var(--warn-soft); }
+.bind-row { display: grid; grid-template-columns: 58px 1fr; gap: 7px 12px; align-items: center; }
+.bind-row label { font-size: 12px; color: var(--mute); }
+.seg { display: inline-flex; background: #f1f2f5; border-radius: 8px; padding: 2px; width: fit-content; }
+.seg button { font-size: 11.5px; font-weight: 600; padding: 4px 13px; color: var(--mute); border-radius: 6px; text-align: center; }
+.seg button.on { background: var(--panel); color: var(--acc); box-shadow: 0 1px 3px rgb(0 0 0 / 0.1); }
+.seg.dis { opacity: 0.4; pointer-events: none; }
+
+/* ================= memory / sessions / vault ================= */
+.list-plain { list-style: none; margin: 0; padding: 0; }
+.list-plain li { padding: 9px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: baseline; gap: 10px; }
+.list-plain li:hover { background: #fafbfd; }
+.list-plain li.sel { background: var(--acc-soft); }
+.list-plain li b { font-size: 13px; }
+.list-plain li .s { font: 10.5px var(--mono); color: var(--faint); margin-left: auto; }
+table.data { width: 100%; border-collapse: collapse; }
+table.data th, table.data td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
+table.data thead th { font-size: 11px; color: var(--faint); font-weight: 700; }
+table.data tbody tr { cursor: pointer; }
+table.data tbody tr:hover { background: #fafbfd; }
+table.data td.mono { font-family: var(--mono); font-size: 11px; color: var(--mute); }
+.empty { padding: 40px 20px; text-align: center; color: var(--faint); font-size: 12.5px; }
+
+footer { padding: 22px 32px; font: 10.5px var(--mono); color: var(--faint); }
+@media (max-width: 980px) {
+  .layout { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .side .cap, .side-search, .side-foot { display: none; }
+  .split, .stats, .todo-cards, .ov-cols { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- ================= sidebar ================= -->
+  <aside class="side">
+    <div class="brand">
+      <span class="mark">H</span>
+      <div><b>Agent Hub</b><small>CONTROL PLANE</small></div>
+    </div>
+    <button class="side-search">搜索 skill、Agent…<kbd>⌘K</kbd></button>
+
+    <button class="navb on" data-page="overview"><span class="ic">◎</span>概览<span class="n warn">3</span></button>
+
+    <p class="cap">资产</p>
+    <button class="navb" data-page="skills"><span class="ic">▤</span>Skills<span class="n">21</span></button>
+    <button class="navb" data-page="ctx"><span class="ic">▦</span>约定 Ctx</button>
+    <button class="navb" data-page="memory"><span class="ic">▧</span>记忆<span class="n">4</span></button>
+    <button class="navb" data-page="sessions"><span class="ic">≡</span>会话<span class="n">1.2k</span></button>
+    <button class="navb" data-page="vault"><span class="ic">▣</span>保险库<span class="n">6</span></button>
+
+    <p class="cap">投递</p>
+    <button class="navb" data-page="matrix"><span class="ic">⊞</span>绑定矩阵</button>
+    <button class="navb" data-page="agents"><span class="ic">⬡</span>Agents<span class="n">19</span></button>
+
+    <div class="side-foot">
+      <div class="p">~/.agent-hub</div>
+      <div class="ok"><i></i>本机运行 · 127.0.0.1:3950</div>
+    </div>
+  </aside>
+
+  <div class="main">
+
+  <!-- ================= 概览 ================= -->
+  <section id="page-overview">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Overview</p>
+        <h1>概览</h1>
+        <p class="sub">一份资产，投递到 19 个 Agent</p>
+      </div>
+      <div class="acts"><button class="btn">扫描全部</button></div>
+    </div>
+
+    <div class="todo-cards">
+      <div class="todo-card r">
+        <div class="k">冲突</div><div class="v">1</div>
+        <p>review-security 与 Cursor 自有版本冲突</p>
+        <button class="act">去解决 →</button>
+      </div>
+      <div class="todo-card y">
+        <div class="k">断链</div><div class="v">2</div>
+        <p>grok、hyper 各有一条失效软链</p>
+        <button class="act">一键修复 →</button>
+      </div>
+      <div class="todo-card b">
+        <div class="k">未收编</div><div class="v">3</div>
+        <p>3 份用户 skill 还散在各家目录</p>
+        <button class="act">去收编 →</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Skills</div><div class="v">21</div><div class="s">18 份已收编</div></div>
+      <div class="stat"><div class="k">Agents</div><div class="v">19</div><div class="s">11 个已发现客户端</div></div>
+      <div class="stat"><div class="k">会话索引</div><div class="v">1,284</div><div class="s">原文留在各家目录</div></div>
+      <div class="stat"><div class="k">保险库</div><div class="v">6</div><div class="s">磁盘只有密文</div></div>
+    </div>
+
+    <div class="ov-cols">
+      <div class="panel">
+        <div class="panel-h"><h2>各层投递情况</h2><span class="hint">多少 Agent 该层听 Hub</span></div>
+        <div class="bars">
+          <div class="bar-row"><label>技能</label><div class="bar-track"><div class="bar-fill" style="width:47%"></div></div><span class="n">9 / 19</span></div>
+          <div class="bar-row"><label>约定</label><div class="bar-track"><div class="bar-fill" style="width:21%"></div></div><span class="n">4 / 19</span></div>
+          <div class="bar-row"><label>记忆</label><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div><span class="n">11 / 19</span></div>
+          <div class="bar-row"><label>会话</label><div class="bar-track"><div class="bar-fill" style="width:26%"></div></div><span class="n">5 / 19</span></div>
+          <div class="bar-row"><label>保险库</label><div class="bar-track"><div class="bar-fill" style="width:11%"></div></div><span class="n">2 / 19</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>最近动态</h2></div>
+        <ul class="feed">
+          <li><span class="t">11:20</span><span><span class="tag s">SKILL</span>frontend-design 已保存，同步到 3 个 Agent</span></li>
+          <li><span class="t">10:47</span><span><span class="tag w">BIND</span>cursor 的约定层改为 Own</span></li>
+          <li><span class="t">09:32</span><span><span class="tag d">冲突</span>review-security 与 Cursor 自有版本冲突</span></li>
+          <li><span class="t">09:12</span><span><span class="tag o">MEM</span>写入长期记忆 → project world</span></li>
+          <li><span class="t">08:58</span><span><span class="tag w">链接</span>hyper 技能目录出现断链</span></li>
+          <li><span class="t">昨天</span><span><span class="tag o">VAULT</span>xai-api 授权给 grok</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Skills ================= -->
+  <section id="page-skills" class="hidden">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Assets / Skills</p>
+        <h1>Skills</h1>
+        <p class="sub">用户可改的 skill 只在 Hub 存一份，选 Hub 的 Agent 用软链接入</p>
+      </div>
+      <div class="acts">
+        <button class="btn">扫描</button>
+        <button class="btn">修复断链</button>
+        <button class="btn pri">收编到 Hub</button>
+      </div>
+    </div>
+    <div class="chips" id="skill-chips">
+      <button class="chip on" data-f="">全部<span class="c">10</span></button>
+      <button class="chip bad" data-f="r">冲突<span class="c">1</span></button>
+      <button class="chip warn" data-f="y">断链<span class="c">2</span></button>
+      <button class="chip" data-f="u">未收编<span class="c">3</span></button>
+    </div>
+    <div class="split">
+      <div class="panel pad">
+        <input class="search" id="skill-q" type="search" placeholder="搜索 skill…" />
+        <div id="skill-list"></div>
+      </div>
+      <div class="panel pad" style="display:flex;flex-direction:column">
+        <div class="panel-h" style="padding:0 0 12px;border-bottom:0">
+          <h2 id="ed-title">SKILL.md</h2>
+          <button class="btn">外部打开</button>
+        </div>
+        <p class="meta" id="ed-meta">从左侧选择一份 skill。<br><span class="path" id="ed-path"></span></p>
+        <div class="targets" id="ed-targets"></div>
+        <textarea id="ed-body" spellcheck="false" placeholder="选择左侧 skill 后在此编辑"></textarea>
+        <div class="editor-foot">
+          <button class="btn">预览</button>
+          <span class="spacer"></span>
+          <span class="saved" id="ed-saved">未修改</span>
+          <button class="btn pri" id="btn-save" disabled>保存</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Ctx ================= -->
+  <section id="page-ctx" class="hidden">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Assets / Ctx</p>
+        <h1>约定</h1>
+        <p class="sub">USER.md 描述使用者；项目 AGENTS.md 始终在仓库里，Hub 不复制</p>
+      </div>
+      <div class="acts"><button class="btn pri">保存</button></div>
+    </div>
+    <div class="split">
+      <div class="panel pad">
+        <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2>USER.md</h2></div>
+        <p class="meta"><span class="path">~/.agent-hub/USER.md</span></p>
+        <textarea spellcheck="false"># 使用者
+
+- 姓名：William
+- 偏好：回答用中文，代码注释用英文
+- 环境：macOS，主力工具 Cursor / Grok CLI</textarea>
+      </div>
+      <div class="panel pad">
+        <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2>项目 AGENTS.md</h2></div>
+        <p class="meta">填仓库绝对路径后打开，编辑会直接写回仓库。</p>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input class="search" style="margin:0" type="text" placeholder="/Users/william/world" />
+          <button class="btn">打开</button>
+        </div>
+        <textarea spellcheck="false" placeholder="打开仓库后在此编辑 AGENTS.md"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 记忆 ================= -->
+  <section id="page-memory" class="hidden">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Assets / Memory</p>
+        <h1>记忆</h1>
+        <p class="sub">只在 Hub 改。全局入口在新会话加载</p>
+      </div>
+      <div class="acts">
+        <button class="btn">导入原生记忆</button>
+        <button class="btn">重新同步加载入口</button>
+        <button class="btn pri">新建项目</button>
+      </div>
+    </div>
+    <div class="split">
+      <div class="panel pad">
+        <ul class="list-plain">
+          <li class="sel"><b>global.md</b><span class="s">全局</span></li>
+          <li><b>world.md</b><span class="s">项目 · 12 条</span></li>
+          <li><b>agent-hub.md</b><span class="s">项目 · 7 条</span></li>
+          <li><b>notes.md</b><span class="s">项目 · 3 条</span></li>
+        </ul>
+        <div style="margin-top:14px">
+          <p class="meta">追加一条</p>
+          <textarea class="short" style="min-height:72px" spellcheck="false" placeholder="一条长期记忆"></textarea>
+          <div style="margin-top:8px"><button class="btn pri">写入</button></div>
+        </div>
+      </div>
+      <div class="panel pad" style="display:flex;flex-direction:column">
+        <div class="panel-h" style="padding:0 0 12px;border-bottom:0">
+          <h2>global.md</h2>
+          <button class="btn">外部打开</button>
+        </div>
+        <p class="meta"><span class="path">~/.agent-hub/memory/global.md</span></p>
+        <textarea spellcheck="false"># 长期记忆
+
+- 2026-09-12 部署一律走 origin CLI，不要手动 scp
+- 2026-09-15 review 类任务先看 audit 文档再动手</textarea>
+        <div class="editor-foot">
+          <span class="spacer"></span>
+          <button class="btn pri">保存</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 会话 ================= -->
+  <section id="page-sessions" class="hidden">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Assets / Sessions</p>
+        <h1>会话</h1>
+        <p class="sub">原文仍在各家目录，Hub 只记路径、标题、cwd</p>
+      </div>
+      <div class="acts"><button class="btn pri">刷新索引</button></div>
+    </div>
+    <div class="panel">
+      <div class="pad" style="border-bottom:1px solid var(--line-soft)">
+        <input class="search" style="margin:0" type="search" placeholder="搜标题 / cwd / id" />
+      </div>
+      <table class="data">
+        <thead><tr><th>来源</th><th>标题 / 摘要</th><th>cwd</th><th>更新</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">cursor</td><td>agent-hub 前端重设计</td><td class="mono">~/agent-hub</td><td class="mono">11:20</td></tr>
+          <tr><td class="mono">grok</td><td>world 项目部署脚本排查</td><td class="mono">~/world</td><td class="mono">昨天</td></tr>
+          <tr><td class="mono">codex</td><td>vault 加密轮换</td><td class="mono">~/agent-hub</td><td class="mono">昨天</td></tr>
+          <tr><td class="mono">cursor</td><td>memory 自动加载适配</td><td class="mono">~/agent-hub</td><td class="mono">09-16</td></tr>
+          <tr><td class="mono">claude</td><td>审计第六轮修复</td><td class="mono">~/agent-hub</td><td class="mono">09-15</td></tr>
+        </tbody>
+      </table>
+      <div class="pad" style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line-soft)">
+        <span style="font-size:12.5px;color:var(--mute)">选中一场后可写交接条，交给另一个 Agent 继续，不搬 jsonl。</span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn">打开源路径</button>
+        <button class="btn pri">写交接条</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 保险库 ================= -->
+  <section id="page-vault" class="hidden">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Assets / Vault</p>
+        <h1>保险库</h1>
+        <p class="sub">磁盘只有密文。说明可检索，密钥字段掩码</p>
+      </div>
+      <div class="acts"><button class="btn">显示密钥</button><button class="btn pri">保存</button></div>
+    </div>
+    <div class="split">
+      <div class="panel pad">
+        <ul class="list-plain">
+          <li class="sel"><b>xai-api</b><span class="s">grok, cursor</span></li>
+          <li><b>openai-api</b><span class="s">codex</span></li>
+          <li><b>github-token</b><span class="s">无人可取</span></li>
+          <li><b>ssh-deploy</b><span class="s">grok</span></li>
+          <li><b>npm-token</b><span class="s">无人可取</span></li>
+          <li><b>db-prod</b><span class="s">cursor</span></li>
+        </ul>
+      </div>
+      <div class="panel pad" style="display:flex;flex-direction:column">
+        <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2>xai-api</h2></div>
+        <p class="meta">勾选后该 Agent 才能 <code>hub vault get</code>。失焦后重新掩码。</p>
+        <div class="targets">
+          <button class="tchip on">grok</button>
+          <button class="tchip on">cursor</button>
+          <button class="tchip">codex</button>
+          <button class="tchip">claude</button>
+        </div>
+        <textarea spellcheck="false">## xai-api
+
+- endpoint: https://api.x.ai/v1
+- key: xai-•••••••••••••••• (掩码)</textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 绑定矩阵 ================= -->
+  <section id="page-matrix" class="hidden">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Delivery / Matrix</p>
+        <h1>绑定矩阵</h1>
+        <p class="sub">每个 Agent 的每一层听 Hub 还是听自己。人设永远是各家自己的文件</p>
+      </div>
+      <div class="acts"><button class="btn" id="btn-matrix-agents">按 Agent 卡片查看 →</button></div>
+    </div>
+    <div class="matrix-tools">
+      <div class="legend">
+        <span><i style="background:var(--acc)"></i>Hub — 听 Hub 的</span>
+        <span><i style="background:#c9cdd5"></i>Own — 听自己的</span>
+        <span><i style="background:transparent;border:1px solid var(--line)"></i>关 — 不投递</span>
+        <span><i style="background:transparent;color:#c9cdd5">·</i>该层不适用</span>
+      </div>
+    </div>
+    <div class="panel matrix-wrap">
+      <table class="matrix" id="matrix"></table>
+    </div>
+  </section>
+
+  <!-- ================= Agents ================= -->
+  <section id="page-agents" class="hidden">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Delivery / Agents</p>
+        <h1>Agents</h1>
+        <p class="sub">逐个点开调整，或去绑定矩阵一页改完全部</p>
+      </div>
+    </div>
+    <div class="filterbar">
+      <input id="agent-q" type="search" placeholder="筛选 Agent：名称或 ID" />
+      <span class="cnt" id="agent-cnt"></span>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <footer>AGENT HUB · DEMO B2 · 白昼工作站 · 重排版 — 数据为演示桩</footer>
+  </div>
+</div>
+
+<script>
+const LAYERS = [
+  { id: "skills",   cn: "技能",   vals: ["hub", "own"] },
+  { id: "ctx",      cn: "约定",   vals: ["hub", "own"] },
+  { id: "memory",   cn: "记忆",   vals: ["hub", "own"] },
+  { id: "sessions", cn: "会话",   vals: ["index", "own"] },
+  { id: "vault",    cn: "保险库", vals: ["hub", "own", "off"] },
+];
+const AGENTS = [
+  { id: "grok",      label: "Grok CLI",           inst: true,  bind: { skills: "hub", ctx: "hub", memory: "hub", sessions: "index", vault: "hub" } },
+  { id: "cursor",    label: "Cursor Agent",       inst: true,  bind: { skills: "hub", ctx: "own", memory: "hub", sessions: "index", vault: "own" } },
+  { id: "codex",     label: "Codex",              inst: true,  bind: { skills: "own", ctx: "hub", memory: "hub", sessions: "index", vault: "off" } },
+  { id: "hyper",     label: "grok-hyper",         inst: true,  bind: { skills: "hub", ctx: "own", memory: "own", sessions: "own",   vault: "off" } },
+  { id: "workbuddy", label: "WorkBuddy",          inst: true,  bind: { skills: "hub", ctx: "hub", memory: "hub", sessions: "index", vault: "off" } },
+  { id: "hermes",    label: "Hermes",             inst: false, bind: { skills: "own", ctx: "own", memory: "hub", sessions: "own",   vault: "off" } },
+  { id: "claude",    label: "Claude Code",        inst: true,  bind: { skills: "own", ctx: "own", memory: "hub", sessions: "own",   vault: "own" } },
+  { id: "opencode",  label: "OpenCode",           inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "gemini",    label: "Gemini CLI",         inst: true,  memo: true, bind: { memory: "own" } },
+  { id: "cline",     label: "Cline",              inst: false, memo: true, bind: { memory: "hub" } },
+  { id: "roo",       label: "Roo Code",           inst: false, memo: true, bind: { memory: "own" } },
+  { id: "kilo",      label: "Kilo Code",          inst: false, memo: true, bind: { memory: "own" } },
+  { id: "windsurf",  label: "Windsurf",           inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "copilot",   label: "Copilot CLI",        inst: true,  memo: true, bind: { memory: "own" } },
+  { id: "goose",     label: "Goose",              inst: false, memo: true, bind: { memory: "own" } },
+  { id: "qwen",      label: "Qwen Code",          inst: true,  memo: true, bind: { memory: "hub" } },
+  { id: "pi",        label: "Pi",                 inst: false, memo: true, bind: { memory: "own" } },
+  { id: "openclaw",  label: "OpenClaw",           inst: false, memo: true, bind: { memory: "own" } },
+  { id: "aider",     label: "Aider",              inst: true,  memo: true, bind: { memory: "hub" } },
+];
+const SKILLS = [
+  { name: "frontend-design",      updated: "09-17 11:20", targets: ["grok", "cursor", "claude"], st: "" },
+  { name: "web-development",      updated: "09-16 21:02", targets: ["grok", "cursor"],           st: "" },
+  { name: "review-security",      updated: "09-15 09:44", targets: null,                         st: "r" },
+  { name: "automate",             updated: "09-14 18:30", targets: ["codex"],                    st: "" },
+  { name: "canvas",               updated: "09-12 14:05", targets: null,                         st: "" },
+  { name: "create-skill",         updated: "09-11 10:12", targets: ["grok"],                     st: "y" },
+  { name: "delegate-to-grok-cli", updated: "09-10 16:40", targets: ["cursor"],                   st: "y" },
+  { name: "review-bugbot",        updated: "09-09 11:26", targets: null,                         st: "" },
+  { name: "split-to-prs",         updated: "09-08 20:15", targets: ["codex", "grok"],            st: "" },
+  { name: "statusline",           updated: "09-06 08:52", targets: null,                         st: "" },
+];
+const MD = `---\nname: frontend-design\ndescription: >-\n  Guidance for distinctive, intentional visual design.\nhub_targets: [grok, cursor, claude]\n---\n\n# Frontend Design\n\nApproach this as the design lead at a small studio…\n`;
+const PILL_TXT = { hub: "Hub", own: "Own", index: "索引", off: "关", na: "·" };
+const PAGES = ["overview", "skills", "ctx", "memory", "sessions", "vault", "matrix", "agents"];
+
+/* ---- routing: sidebar + hash ---- */
+function go(page) {
+  document.querySelectorAll(".navb").forEach(x => x.classList.toggle("on", x.dataset.page === page));
+  PAGES.forEach(p => document.getElementById("page-" + p).classList.toggle("hidden", p !== page));
+  if (location.hash !== "#/" + page) history.replaceState(null, "", "#/" + page);
+}
+document.querySelectorAll(".navb").forEach(b => b.addEventListener("click", () => go(b.dataset.page)));
+const initial = location.hash.replace("#/", "");
+go(PAGES.includes(initial) ? initial : "overview");
+
+document.getElementById("btn-matrix-agents").addEventListener("click", () => go("agents"));
+
+/* ---- matrix ---- */
+const matrix = document.getElementById("matrix");
+matrix.innerHTML =
+  "<thead><tr><th>Agent</th>" + LAYERS.map(l => `<th>${l.cn}</th>`).join("") + "</tr></thead>" +
+  "<tbody>" + AGENTS.map(a => `<tr>
+    <td class="agent">${a.label}<span class="id">${a.id}</span></td>
+    ${LAYERS.map(l => {
+      const v = a.memo && l.id !== "memory" ? "na" : (a.bind[l.id] ?? "na");
+      return `<td><button class="pill ${v}" data-a="${a.id}" data-l="${l.id}">${PILL_TXT[v]}</button></td>`;
+    }).join("")}
+  </tr>`).join("") + "</tbody>";
+matrix.addEventListener("click", (e) => {
+  const c = e.target.closest(".pill"); if (!c || c.classList.contains("na")) return;
+  const layer = LAYERS.find(l => l.id === c.dataset.l);
+  const agent = AGENTS.find(a => a.id === c.dataset.a);
+  const next = layer.vals[(layer.vals.indexOf(agent.bind[layer.id]) + 1) % layer.vals.length];
+  agent.bind[layer.id] = next;
+  c.className = "pill " + next; c.textContent = PILL_TXT[next];
+});
+
+/* ---- skills ---- */
+let skillFilter = "";
+const listEl = document.getElementById("skill-list");
+function renderSkills(q = "") {
+  const rows = SKILLS.filter(s => s.name.includes(q) && (!skillFilter || s.st === skillFilter));
+  listEl.innerHTML = rows.length ? rows.map(s => {
+    const mounts = s.targets === null
+      ? '<span class="mount hub">默认全部</span>'
+      : s.targets.map(t => `<span class="mount hub">${t}</span>`).join("") || '<span class="mount">未挂载</span>';
+    return `<div class="skill-row" data-name="${s.name}">
+      <span class="dot ${s.st}"></span>
+      <span class="name">${s.name}</span><span class="time">${s.updated}</span>
+      <div class="mounts">${mounts}</div>
+    </div>`;
+  }).join("") : '<div class="empty">没有匹配的 skill</div>';
+}
+renderSkills();
+document.getElementById("skill-q").addEventListener("input", e => renderSkills(e.target.value.trim()));
+document.getElementById("skill-chips").addEventListener("click", (e) => {
+  const c = e.target.closest(".chip"); if (!c) return;
+  skillFilter = c.dataset.f;
+  document.querySelectorAll("#skill-chips .chip").forEach(x => x.classList.toggle("on", x === c));
+  renderSkills(document.getElementById("skill-q").value.trim());
+});
+listEl.addEventListener("click", (e) => {
+  const row = e.target.closest(".skill-row"); if (!row) return;
+  document.querySelectorAll(".skill-row").forEach(r => r.classList.toggle("sel", r === row));
+  const s = SKILLS.find(x => x.name === row.dataset.name);
+  document.getElementById("ed-title").textContent = s.name + "/SKILL.md";
+  document.getElementById("ed-meta").firstChild.textContent = `更新于 ${s.updated} · 挂载 ${s.targets === null ? "默认全部 Agent" : s.targets.join(", ")}`;
+  document.getElementById("ed-path").textContent = `~/.agent-hub/skills/${s.name}/SKILL.md`;
+  document.getElementById("ed-body").value = MD.replaceAll("frontend-design", s.name);
+  document.getElementById("btn-save").disabled = false;
+  document.getElementById("ed-saved").textContent = "未修改";
+  document.getElementById("ed-targets").innerHTML = AGENTS.filter(a => !a.memo).map(a =>
+    `<button class="tchip ${s.targets === null || s.targets.includes(a.id) ? "on" : ""}">${a.id}</button>`).join("");
+});
+document.getElementById("ed-targets").addEventListener("click", (e) => {
+  const t = e.target.closest(".tchip"); if (t) t.classList.toggle("on");
+});
+document.getElementById("ed-body").addEventListener("input", () => {
+  document.getElementById("ed-saved").textContent = "有未保存修改";
+});
+document.getElementById("btn-save").addEventListener("click", () => {
+  document.getElementById("ed-saved").textContent = "已保存 · 刚刚";
+});
+
+/* ---- agents ---- */
+const cardsEl = document.getElementById("cards");
+function segHtml(a, l) {
+  if (a.memo && l.id !== "memory") return `<div class="seg dis"><button>n/a</button></div>`;
+  const cur = a.bind[l.id];
+  return `<div class="seg" data-a="${a.id}" data-l="${l.id}">` +
+    l.vals.map(v => `<button data-v="${v}" class="${v === cur ? "on" : ""}">${PILL_TXT[v]}</button>`).join("") +
+    "</div>";
+}
+function renderAgents(q = "") {
+  const shown = AGENTS.filter(a => (a.label + a.id).toLowerCase().includes(q));
+  cardsEl.innerHTML = shown.map(a => `<div class="card ${a.inst ? "" : "off"}">
+    <div class="card-top">
+      <b>${a.label}</b>
+      <span class="badge ${a.inst ? "inst" : "miss"}">${a.inst ? "已安装" : "未发现"}</span>
+      ${a.memo ? '<span class="badge memo">仅记忆</span>' : ""}
+    </div>
+    <div class="bind-row">
+      ${LAYERS.map(l => `<label>${l.cn}</label>${segHtml(a, l)}`).join("")}
+    </div>
+  </div>`).join("");
+  document.getElementById("agent-cnt").textContent = shown.length + " / " + AGENTS.length;
+}
+renderAgents();
+document.getElementById("agent-q").addEventListener("input", e => renderAgents(e.target.value.trim().toLowerCase()));
+cardsEl.addEventListener("click", (e) => {
+  const b = e.target.closest(".seg button"); if (!b) return;
+  const seg = b.parentElement;
+  AGENTS.find(a => a.id === seg.dataset.a).bind[seg.dataset.l] = b.dataset.v;
+  seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+});
+</script>
+</body>
+</html>

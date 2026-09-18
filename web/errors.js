@@ -1,0 +1,222 @@
+/** Shared zh/en table for API errors, snapshot warnings, and CLI exceptions.
+ *  Protocol keys stay English at the throw site; this maps them for display.
+ *  lang=null leaves the original string (tests and callers that omit Accept-Language).
+ */
+
+export const ERROR_PAIRS = [
+  ["project memory not found", "项目记忆不存在，请先创建后再登记"],
+  ["subagent already exists", "同名子代理已存在，请打开原文件编辑"],
+  ["agent and name required", "需要 agent 和名称"],
+  ["subagent revision required; reload before saving", "需要子代理 revision；请重新载入后再保存"],
+  ["session required", "需要本机会话"],
+  ["host not allowed", "主机不允许"],
+  ["origin not allowed", "来源不允许"],
+  ["content-type must be application/json", "Content-Type 必须是 application/json"],
+  ["not found", "未找到"],
+  ["name required", "需要名称"],
+  ["kind required", "需要 kind"],
+  ["agent required", "需要 agent"],
+  ["agent and sessionId required", "需要 agent 和 sessionId"],
+  ["agent and id required", "需要 agent 和 id"],
+  ["cwd required", "需要 cwd"],
+  ["cwd and name required", "需要 cwd 和名称"],
+  ["name and keep=hub|agent required", "需要 name 以及 keep=hub|agent"],
+  ["session not in index", "会话不在索引中"],
+  ["session source file is gone", "会话源文件已删除或移动"],
+  ["layer must be ctx or memory", "layer 必须是 ctx 或 memory"],
+  ["agent has no ctx projection path", "该 Agent 没有 Ctx 投影路径"],
+  ["request body too large", "请求体过大"],
+  ["invalid request URL", "无效的请求 URL"],
+  ["invalid agent", "无效的 agent"],
+  ["invalid agent or layer", "无效的 agent 或 layer"],
+  ["agent is disabled", "该 Agent 已停用"],
+  ["handoff not found", "找不到交接条"],
+  ["no resume command", "没有 resume 命令"],
+  ["empty memory", "记忆为空"],
+  ["write not allowed", "不允许写入"],
+  ["path escapes allowlist", "路径超出允许范围"],
+  ["cwd not a directory", "cwd 不是目录"],
+  ["skill name required", "需要 skill 名称"],
+  ["no soul file", "没有 SOUL.md"],
+  ["subagent not available", "子代理不可用"],
+  ["unknown file kind", "未知文件类型"],
+  ["need --for a,b", "需要 --for a,b"],
+  ["need skill name", "需要 skill 名称"],
+  ["names must be an array of skill names", "names 必须是技能名数组"],
+  ["skill revision required", "需要 skill revision"],
+  ["skill revision required; reload before saving", "需要 skill revision；请重新载入后再保存"],
+  ["vault revision required; reload before saving", "需要 vault revision；请重新载入后再保存"],
+  ["vault revision required; reload before granting", "需要 vault revision；请重新载入后再授权"],
+  ["skillsMode adopt|link-existing required", "需要 skillsMode adopt 或 link-existing"],
+  ["Sessions=own requires explicit reveal", "Sessions=own 需要显式揭隐"],
+  ["ctx inject failed", "Ctx 投影失败"],
+  ["memory inject failed", "Memory 注入失败"],
+  ["vault catalog inject failed", "保险库目录注入失败"],
+  ["global is a reserved name", "global 是保留名称"],
+  ["Project memory already exists", "项目记忆已存在"],
+  ["File changed elsewhere; reload and merge the draft", "文件已被其他操作修改，请重新载入并合并草稿"],
+  ["This agent only supports Memory autoload", "该 Agent 仅支持 Memory 自动加载"],
+  ["SKILL.md frontmatter is not valid YAML; fix it and retry", "SKILL.md frontmatter 不是有效 YAML，请修正后重试"],
+  ["hub.targets must be an array of valid agent ids or *", "hub.targets 必须是有效 Agent ID 或 * 的数组"],
+  ["frontmatter must be a mapping", "frontmatter 必须是映射"],
+  ["Cannot restore a mask: keep the original entry id and field name, or reveal secrets before renaming", "无法还原掩码：请保留原条目 ID 和字段名，或显示密钥后重命名"],
+  ["vault.bin is not Agent Hub ciphertext", "vault.bin 不是 Agent Hub 密文"],
+  ["AGENT_HUB_VAULT_KEY must be 32-byte hex", "AGENT_HUB_VAULT_KEY 必须是 32 字节 hex"],
+  ["Cannot read the macOS Keychain. A new master key is not created when vault.bin already exists.", "无法读取 macOS Keychain。已有 vault.bin 时不会生成新主密钥。"],
+  ["No master key in Keychain, but vault.bin exists. Refusing to auto-generate so ciphertext is not destroyed.", "Keychain 中没有主密钥，但 vault.bin 已存在。拒绝自动生成以免毁掉密文。"],
+  ["Cannot write the macOS Keychain (KEYCHAIN_WRITE_FAILED). Check Keychain access.", "无法写入 macOS Keychain（KEYCHAIN_WRITE_FAILED）。请检查钥匙串访问权限。"],
+  ["Grant target does not support Vault yet", "授权目标尚不支持 Vault"],
+  ["Vault changed elsewhere; reload and merge the draft", "保险库已被其他操作修改，请重新载入后合并草稿"],
+  ["Vault changed elsewhere; reload", "保险库已被其他操作修改，请重新载入"],
+  ["Not granted or missing", "未授权或不存在"],
+  ["vault entry id must contain ASCII letters or digits", "保险库条目 id 必须含 ASCII 字母或数字"],
+  ["invalid vault store; refusing to overwrite", "保险库数据无效，拒绝覆盖"],
+  ["ambiguous vault environment names", "保险库环境变量名有歧义"],
+  ["Skills=Own: adopt through the bind flow first", "Skills=Own：请先通过绑定流程明确收编"],
+  ["invalid conflict choice", "无效的冲突选项"],
+  ["protected skill source", "受保护的 skill 来源"],
+  ["Source is a vendor tree or the vault; cannot promote", "来源是厂商目录或保险库，不能提升"],
+  ["No identity backup available", "没有可用的 Identity 备份"],
+  ["Legacy backup source unknown; specify identity, soul, or subagent", "旧备份来源未知，请明确指定 identity / soul / subagent"],
+  ["Vault unavailable; indexing and handoff are paused. Source files are unchanged. Restore the vault and retry.", "保险库暂不可用，已暂停索引和交接访问；原文件保持不变，请恢复保险库后重试"],
+  ["Vault read failed; entry count unknown. Unlock the system Keychain and retry on the Vault page. If it still fails, check that the master key matches vault.bin.", "保险库读取失败，条目数未知。请解锁系统钥匙串，并在 Vault 页重试；若仍失败，请检查主密钥与 vault.bin 是否匹配。"],
+  ["Cannot inspect the delivery parent directory", "无法检查投递目标父目录"],
+  ["Cannot inspect workspace Git status. Install Git, check repo access, and retry.", "无法检查工作区 Git 状态；请安装 Git 并检查仓库访问权限后重试。"],
+  ["Delivery target is outside the current Git worktree", "投递目标不在当前 Git 工作区内"],
+  ["Hub memory markers are damaged; fix them and retry. User content was not overwritten.", "Hub memory 区块标记损坏，请修复后重试；未覆盖用户内容"],
+  ["Hub identity markers are damaged; fix them and retry. User content was not overwritten.", "Hub identity 区块标记损坏，请修复后重试；未覆盖用户内容"],
+  ["Shared native entry already has a different memory scope. Use a client-specific entry or unify the scope.", "共享原生入口已有不同记忆作用域；请使用客户端专属入口或统一作用域"],
+  ["Both kilo.json and kilo.jsonc exist; pick one native config source first", "同时存在 kilo.json 和 kilo.jsonc，请先明确原生配置来源"],
+  ["This agent needs the handoff file opened manually in the app", "此 Agent 需要在应用中手动读取交接条"],
+  ["Manual memory export; import the file into the client. No verified native autoload entrypoint.", "手动导出记忆；请将文件导入客户端。尚无已验证的原生自动加载入口。"],
+  ["Doubao", "豆包"],
+  ["invalid skill name", "无效的 skill 名称"],
+  ["invalid JSON/JSONC configuration; no changes made", "JSON/JSONC 配置无效，未做修改"],
+  ["invalid YAML mapping; no changes made", "YAML 映射无效，未做修改"],
+  ["Hub is busy; retry after the other writer completes", "Hub 正忙，请等另一写入完成后重试"],
+  ["stale lock recovery is busy; inspect .writer.lock.reap if it persists", "过期锁回收正忙；若持续，请检查 .writer.lock.reap"],
+  ["Invalid writer lock; manual inspection required", "写入锁无效，需要人工检查"],
+  ["refusing to write vendor or vault path", "拒绝写入厂商目录或保险库路径"],
+  ["refusing to write outside Hub skills", "拒绝写入 Hub skills 以外的路径"],
+  ["protected skill tree", "受保护的 skill 树"],
+  ["skill tree exceeds safety scan limit", "skill 树超过安全扫描上限"],
+  ["autoload configuration backup missing", "自动加载配置备份缺失"],
+  ["no session scanner yet", "尚无会话扫描器"],
+  ["Roo Code (archived)", "Roo Code（已归档）"],
+];
+
+export const ERROR_PATTERNS = [
+  { re: "^Hub 中没有 skill: (.+)$", en: "No such Hub skill: {1}", zh: "Hub 中没有 skill: {1}" },
+  { re: "^No such Hub skill: (.+)$", en: "No such Hub skill: {1}", zh: "Hub 中没有 skill: {1}" },
+  { re: "^没有可采用的 Agent 副本: (.+)$", en: "No adoptable agent copy: {1}", zh: "没有可采用的 Agent 副本: {1}" },
+  { re: "^仓库里没有项目 skill: (.+)$", en: "No project skill in the repo: {1}", zh: "仓库里没有项目 skill: {1}" },
+  { re: "^Hub 已有同名 skill: (.+)。不会覆盖仓库或 Hub。$", en: "Hub already has skill {1}. Neither the repo nor Hub will be overwritten.", zh: "Hub 已有同名 skill: {1}。不会覆盖仓库或 Hub。" },
+  { re: "^项目 skill 同名冲突，请先明确来源：(.+)$", en: "Project skill name conflict; pick a source first: {1}", zh: "项目 skill 同名冲突，请先明确来源：{1}" },
+  { re: "^没有这份备份: (.+)$", en: "No such backup: {1}", zh: "没有这份备份: {1}" },
+  { re: "^(.+) 尚无会话扫描器$", en: "{1} has no session scanner yet", zh: "{1} 尚无会话扫描器" },
+  { re: "^(.+) 尚不支持交接$", en: "{1} does not support handoff yet", zh: "{1} 尚不支持交接" },
+  { re: "^(.+) does not support handoff yet$", en: "{1} does not support handoff yet", zh: "{1} 尚不支持交接" },
+  { re: "^(.+) 的 Sessions=own，交接需要显式揭隐（--own / forceOwn）$", en: "{1} has Sessions=own; handoff needs an explicit reveal (--own / forceOwn)", zh: "{1} 的 Sessions=own，交接需要显式揭隐（--own / forceOwn）" },
+  { re: "^(.+) 本轮仅支持 Memory 自动加载$", en: "{1} only supports Memory autoload this round", zh: "{1} 本轮仅支持 Memory 自动加载" },
+  { re: "^(.+) 未检测到安装，请安装客户端并初始化配置后重试$", en: "{1} is not installed. Install the client, initialize it, then retry.", zh: "{1} 未检测到安装，请安装客户端并初始化配置后重试" },
+  { re: "^(.+) 不支持 Ctx=Hub$", en: "{1} does not support Ctx=Hub", zh: "{1} 不支持 Ctx=Hub" },
+  { re: "^(.+) 尚不支持 Vault$", en: "{1} does not support Vault yet", zh: "{1} 尚不支持 Vault" },
+  { re: "^(.+) 的 Vault 不是 Hub$", en: "{1} Vault is not Hub", zh: "{1} 的 Vault 不是 Hub" },
+  { re: "^memory 注入路径是目录：(.+)$", en: "Memory inject path is a directory: {1}", zh: "memory 注入路径是目录：{1}" },
+  { re: "^(.+) 目标是目录，无法注入：(.+)$", en: "{1} destination is a directory and cannot be injected: {2}", zh: "{1} 目标是目录，无法注入：{2}" },
+  { re: "^session not in index: (.+)$", en: "session not in index: {1}", zh: "会话不在索引中: {1}" },
+  { re: "^invalid bind (.+)$", en: "invalid bind {1}", zh: "无效绑定 {1}" },
+  { re: "^unknown agent: (.+)$", en: "unknown agent: {1}", zh: "未知 agent: {1}" },
+  { re: "^unknown hub skill: (.+)$", en: "unknown hub skill: {1}", zh: "未知 Hub skill: {1}" },
+  { re: "^unknown vault entry: (.+)$", en: "unknown vault entry: {1}", zh: "未知保险库条目: {1}" },
+  { re: "^unknown vault command: (.+)$", en: "unknown vault command: {1}", zh: "未知保险库命令: {1}" },
+  { re: "^unknown command: (.+)$", en: "unknown command: {1}", zh: "未知命令: {1}" },
+  { re: "^unknown layer: (.+)$", en: "unknown layer: {1}", zh: "未知层: {1}" },
+  { re: "^cwd not a directory: (.+)$", en: "cwd not a directory: {1}", zh: "cwd 不是目录: {1}" },
+  { re: "^invalid project id: (.+)$", en: "invalid project id: {1}", zh: "无效项目 id: {1}" },
+  { re: "^config\\.toml: (.+) 不支持 Sessions=index$", en: "config.toml: {1} does not support Sessions=index", zh: "config.toml: {1} 不支持 Sessions=index" },
+  { re: "^config\\.toml: (.+) 仅支持 Memory$", en: "config.toml: {1} only supports Memory", zh: "config.toml: {1} 仅支持 Memory" },
+  { re: "^(.+) 不支持 Sessions=index$", en: "{1} does not support Sessions=index", zh: "{1} 不支持 Sessions=index" },
+  { re: "^(.+) 仅支持 Memory$", en: "{1} only supports Memory", zh: "{1} 仅支持 Memory" },
+  { re: "^原生配置需要处理：(.+)$", en: "Native config needs attention: {1}", zh: "原生配置需要处理：{1}" },
+  { re: "^工作区不可用，已跳过投递（可注销）：(.+)。$", en: "Workspace unavailable; delivery skipped (you can detach): {1}.", zh: "工作区不可用，已跳过投递（可注销）：{1}。" },
+  { re: "^原生入口：(.+)。新会话加载；尚不代表运行时已验收。(.*)$", en: "Native entry: {1}. Loads on a new session; runtime consumption is not verified. {2}", zh: "原生入口：{1}。新会话加载；尚不代表运行时已验收。{2}" },
+  { re: "^Skills 状态不可用（不是空库），其他模块仍可使用：(.+)$", en: "Skills status unavailable (not an empty library); other modules still work: {1}", zh: "Skills 状态不可用（不是空库），其他模块仍可使用：{1}" },
+  { re: "^Goose (.+) 的 CONTEXT_FILE_NAMES 必须是文件名数组，请检查原生配置。$", en: "Goose {1} CONTEXT_FILE_NAMES must be an array of file names. Check the native config.", zh: "Goose {1} 的 CONTEXT_FILE_NAMES 必须是文件名数组，请检查原生配置。" },
+  { re: "^(.+) 配置仅指向 CLAUDE\\.md / \\.cursorrules，Hub 不写入其他客户端规则。请在原生配置中添加专用文件名（如 HUB-MEMORY\\.md）后重试；原有规则可继续只读加载。$", en: "{1} config only points at CLAUDE.md / .cursorrules. Hub will not write other clients' rules. Add a dedicated file name (e.g. HUB-MEMORY.md) in native config and retry. Existing rules can keep loading read-only.", zh: "{1} 配置仅指向 CLAUDE.md / .cursorrules，Hub 不写入其他客户端规则。请在原生配置中添加专用文件名（如 HUB-MEMORY.md）后重试；原有规则可继续只读加载。" },
+  { re: "^(.+) 当前回退读取 CLAUDE\\.md；Hub 不会写入它，也不会新建高优先级文件遮蔽它。请先将所需指令整理到 (.+) 后重试。$", en: "{1} currently falls back to CLAUDE.md. Hub will not write it or create a higher-priority file that shadows it. Move the needed instructions into {2} and retry.", zh: "{1} 当前回退读取 CLAUDE.md；Hub 不会写入它，也不会新建高优先级文件遮蔽它。请先将所需指令整理到 {2} 后重试。" },
+  { re: "^Hermes 当前使用其他客户端规则回退；请先整理到 (.+) 后重试，Hub 不修改跨客户端规则。$", en: "Hermes is falling back to another client's rules. Move them into {1} and retry. Hub does not edit cross-client rules.", zh: "Hermes 当前使用其他客户端规则回退；请先整理到 {1} 后重试，Hub 不修改跨客户端规则。" },
+  { re: "^(.+) 自动加载入口上限 (.+) 字符（含原有内容），本次 (.+)；请缩短全局记忆或使用工作区记忆$", en: "{1} autoload entry cap is {2} characters (including existing content); this write is {3}. Shorten global memory or use workspace memory.", zh: "{1} 自动加载入口上限 {2} 字符（含原有内容），本次 {3}；请缩短全局记忆或使用工作区记忆" },
+  { re: "^Hyper AGENTS\\.md 超过保守加载预算 (.+) UTF-8 字节；请精简或提高原生 context\\.agents_md_max_tokens，避免整份被忽略$", en: "Hyper AGENTS.md exceeds the conservative load budget of {1} UTF-8 bytes. Shorten it or raise native context.agents_md_max_tokens so the whole file is not ignored.", zh: "Hyper AGENTS.md 超过保守加载预算 {1} UTF-8 字节；请精简或提高原生 context.agents_md_max_tokens，避免整份被忽略" },
+  { re: "^记忆投递路径可能被云盘同步：(.+)。请使用非同步目录中的工作区。$", en: "Memory delivery path may be cloud-synced: {1}. Use a workspace outside sync folders.", zh: "记忆投递路径可能被云盘同步：{1}。请使用非同步目录中的工作区。" },
+  { re: "^Agent Hub 数据目录疑似同步路径，密文和索引可能被云盘同步或改写：(.+)。建议将 Hub 数据目录迁至非同步的本地目录。$", en: "Agent Hub data directory looks like a sync path. Ciphertext and the index may be synced or rewritten: {1}. Move Hub data to a local non-sync directory.", zh: "Agent Hub 数据目录疑似同步路径，密文和索引可能被云盘同步或改写：{1}。建议将 Hub 数据目录迁至非同步的本地目录。" },
+  { re: "^duplicate vault entry: (.+)$", en: "duplicate vault entry: {1}", zh: "重复的保险库条目: {1}" },
+  { re: "^duplicate vault field: (.+)$", en: "duplicate vault field: {1}", zh: "重复的保险库字段: {1}" },
+  { re: "^protected skill mount: (.+)$", en: "protected skill mount: {1}", zh: "受保护的 skill 挂载: {1}" },
+  { re: "^skill mount is not a directory: (.+)$", en: "skill mount is not a directory: {1}", zh: "skill 挂载不是目录: {1}" },
+  { re: "^skill mount overlaps Hub: (.+)$", en: "skill mount overlaps Hub: {1}", zh: "skill 挂载与 Hub 重叠: {1}" },
+  { re: "^protected skill tree: (.+)$", en: "protected skill tree: {1}", zh: "受保护的 skill 树: {1}" },
+  { re: "^refusing to write through symlink: (.+)$", en: "refusing to write through symlink: {1}", zh: "拒绝经符号链接写入: {1}" },
+  { re: "^refusing to write shared hard link: (.+)$", en: "refusing to write shared hard link: {1}", zh: "拒绝写入共享硬链接: {1}" },
+  { re: "^refusing to replace non-symlink: (.+)$", en: "refusing to replace non-symlink: {1}", zh: "拒绝替换非符号链接: {1}" },
+  { re: "^invalid (.+)$", en: "invalid {1}", zh: "无效的 {1}" },
+];
+
+export const ERROR_PHRASES = [
+  ["本轮支持 Memory / 原生规则自动加载；其他层未接管。未做本机模型运行验收。", "This round supports Memory / native-rule autoload; other layers are not taken over. Live model runtime is not verified."],
+  ["上游仓库已归档，仅保留兼容。", "Upstream repo is archived; kept for compatibility only."],
+  ["Own 仅停止 Hub 投递，不隔离客户端读取；共享 AGENTS.md 等入口可能被其他客户端读取。", "Own only stops Hub delivery; it does not isolate native reads. Shared AGENTS.md entries may still be read by other clients."],
+  ["为避免 Documents/iCloud 同步，Hub 仅向明确登记的本地工作区 .clinerules 投递；请在 Memory 页登记工作区。", "To avoid Documents/iCloud sync, Hub only injects into registered local workspace .clinerules. Register the workspace on the Memory page."],
+  ["需登记 OpenClaw 实际 agent workspace，加载 MEMORY.md；群聊、子代理及 bootstrap 预算由客户端决定。", "Register the real OpenClaw agent workspace so MEMORY.md loads. Group chat, subagents, and bootstrap budget are decided by the client."],
+  ["需启用本地记忆。", "Enable local memory."],
+  ["需在 Memory 页登记工作区，写入该项目的自动加载规则；仅写全局副本不会生效。", "Register a workspace on the Memory page so project autoload rules are written. A global copy alone will not take effect."],
+  ["工作区不可用，已跳过投递（可注销）：", "Workspace unavailable; delivery skipped (you can detach): "],
+  ["原生入口：", "Native entry: "],
+  ["新会话加载；尚不代表运行时已验收。", "Loads on a new session; runtime consumption is not verified."],
+  ["原生配置需要处理：", "Native config needs attention: "],
+  ["拒绝向 Git 已跟踪文件注入私人记忆：", "Refusing to inject private memory into a Git-tracked file: "],
+  ["下一步：支持自定义规则文件的客户端可先配置专用未跟踪入口；支持全局原生加载的客户端可不登记此工作区、仅保留全局 Memory=Hub（Hyper 等工作区模式不能只依赖兼容副本）。如果确认此文件今后只供本地使用，可自行运行 git -C ", "Next: clients with custom rule files can add a dedicated untracked entry. Clients with global native load can skip this workspace and keep global Memory=Hub (workspace-mode agents such as Hyper cannot rely on a compatibility copy alone). If this file should stay local-only, you may run git -C "],
+  [" rm --cached -- ", " rm --cached -- "],
+  ["，再重新登记；该命令保留本地文件，但会暂存从版本库删除此文件的变更，请先确认团队影响。", ", then register again. That keeps the local file but stages a deletion from the repo; confirm the team impact first."],
+  ["值不会打印到 stdout。要用：hub vault get <id> --for <agent> --exec -- <命令>", "Values are not printed to stdout. Use: hub vault get <id> --for <agent> --exec -- <cmd>"],
+  ["（还没有授权给这个 Agent 的条目）", "(no entries granted to this agent yet)"],
+  ["只读目录，不含密钥。不要把密钥打进日志或会话。取值走受控 env，不要 hub vault get 把明文打到 stdout。", "Read-only catalog, no secrets. Do not put secrets in logs or chats. Fetch via controlled env; do not print plaintext with hub vault get."],
+  ["Hub Vault 目录", "Hub Vault catalog"],
+  ["可用凭据名。值不会出现在这份文件里。", "available credential names. Values are not in this file."],
+  ["扫描失败", "scan failed"],
+];
+
+function applyPhrases(message, lang) {
+  const ordered = [...ERROR_PHRASES].sort((a, b) => b[0].length - a[0].length);
+  let out = message;
+  for (const [zh, en] of ordered) {
+    out = lang === "en" ? out.split(zh).join(en) : out.split(en).join(zh);
+  }
+  return out;
+}
+
+export function translateError(message, lang) {
+  if (!lang || message == null) return message;
+  const text = String(message);
+  for (const pair of ERROR_PAIRS) {
+    const en = pair[0];
+    const zh = pair[1];
+    if (text === en || text === zh) return lang === "en" ? en : zh;
+  }
+  for (const p of ERROR_PATTERNS) {
+    const m = text.match(new RegExp(p.re));
+    if (m) {
+      return p[lang].replace(/\{(\d+)\}/g, (_, i) => m[Number(i)] ?? "");
+    }
+  }
+  return applyPhrases(text, lang);
+}
+
+export function langFromHeader(header) {
+  if (!header || typeof header !== "string") return null;
+  const first = header.split(",")[0].trim().toLowerCase();
+  if (!first) return null;
+  if (first.startsWith("en")) return "en";
+  if (first.startsWith("zh")) return "zh";
+  return null;
+}

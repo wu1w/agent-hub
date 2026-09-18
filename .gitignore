@@ -1,0 +1,25 @@
+# local runtime (never commit)
+.agent-hub-data/
+vault.bin
+*.bak
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+ghp_*
+
+# os / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# build
+node_modules/
+dist/
+target/
+.venv/
+__pycache__/
+*.pyc

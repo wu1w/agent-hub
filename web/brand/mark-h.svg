@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Agent Hub">
+  <rect width="128" height="128" rx="28" fill="#2B59FF"/>
+  <g fill="#fff">
+    <rect x="34" y="28" width="16" height="72" rx="4"/>
+    <rect x="78" y="28" width="16" height="72" rx="4"/>
+    <circle cx="28" cy="64" r="5"/>
+    <circle cx="100" cy="64" r="5"/>
+    <circle cx="64" cy="64" r="8"/>
+  </g>
+  <line x1="28" y1="64" x2="100" y2="64" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>
+</svg>

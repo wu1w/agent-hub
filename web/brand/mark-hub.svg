@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Agent Hub">
+  <rect width="128" height="128" rx="28" fill="#2B59FF"/>
+  <!-- center hex -->
+  <path d="M64 46 L76.5 53.5 V68.5 L64 76 L51.5 68.5 V53.5 Z" fill="#fff"/>
+  <!-- spokes + outer nodes -->
+  <g fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round">
+    <line x1="64" y1="46" x2="64" y2="28"/>
+    <line x1="76.5" y1="53.5" x2="92" y2="42"/>
+    <line x1="76.5" y1="68.5" x2="92" y2="86"/>
+    <line x1="64" y1="76" x2="64" y2="100"/>
+    <line x1="51.5" y1="68.5" x2="36" y2="86"/>
+    <line x1="51.5" y1="53.5" x2="36" y2="42"/>
+  </g>
+  <g fill="none" stroke="#fff" stroke-width="3.2">
+    <circle cx="64" cy="24" r="6"/>
+    <circle cx="96" cy="40" r="6"/>
+    <circle cx="96" cy="88" r="6"/>
+    <circle cx="64" cy="104" r="6"/>
+    <circle cx="32" cy="88" r="6"/>
+    <circle cx="32" cy="40" r="6"/>
+  </g>
+</svg>
