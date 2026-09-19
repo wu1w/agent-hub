@@ -2,6 +2,8 @@
 import { requireSecretMaterial } from "./core/secrets.ts";
 import { transaction, withHubLock } from "./core/transaction.ts";
 import { spawn } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { AGENT_IDS, LAYERS, type AgentId, type ConflictKeep, type Layer } from "./core/types.ts";
 import { applyBind } from "./core/bind.ts";
 import { loadConfig, setAgentEnabled } from "./core/config.ts";
@@ -21,7 +23,7 @@ import {
   skillRecords,
 } from "./core/skills.ts";
 import { buildSnapshot } from "./core/snapshot.ts";
-import { catalogItems, loadVault, renderVaultGetMeta, setVaultGrants, vaultEnvForAgent, vaultEnvVars, vaultGet } from "./core/vault.ts";
+import { catalogItems, loadVault, renderVaultGetMeta, restoreVaultPrevious, setVaultGrants, vaultEnvForAgent, vaultEnvVars, vaultGet } from "./core/vault.ts";
 import { startServer } from "./server.ts";
 import { consumeLangFlag, t, translateError, getLang } from "./core/locale.ts";
 
@@ -132,7 +134,7 @@ function parseFor(args: string[]): AgentId[] {
 
 async function cmdEnable(args: string[], enable: boolean): Promise<void> {
   const name = args[0];
-  if (!name) throw new Error("need skill name");
+  if (!name) throw new Error("skill name required");
   const config = await loadConfig();
   const rec = (await skillRecords(config)).find((item) => item.name === name);
   if (!rec) throw new Error(`unknown hub skill: ${name}`);
@@ -350,6 +352,12 @@ async function cmdVault(args: string[]): Promise<void> {
     });
     return;
   }
+  if (sub === "restore-previous") {
+    await restoreVaultPrevious();
+    await syncVaultCatalogs();
+    console.log(t("vault.restored"));
+    return;
+  }
   throw new Error(`unknown vault command: ${sub}`);
 }
 
@@ -368,8 +376,8 @@ async function cmdReveal(args: string[]): Promise<void> {
   });
 }
 
-async function main(): Promise<void> {
-  const [cmd, ...args] = consumeLangFlag(process.argv.slice(2));
+export async function runCli(argv: string[] = process.argv.slice(2)): Promise<void> {
+  const [cmd, ...args] = consumeLangFlag(argv);
   try {
     if (!cmd || cmd === "help" || cmd === "-h") {
       process.stdout.write(help());
@@ -421,7 +429,12 @@ async function main(): Promise<void> {
     }
     else if (cmd === "web") {
       const port = Number(flag(args, "--port") ?? "3950");
-      await startServer(port);
+      const server = await startServer(port);
+      const halt = () => {
+        server.close(() => process.exit(0));
+      };
+      process.once("SIGINT", halt);
+      process.once("SIGTERM", halt);
     } else {
       throw new Error(`unknown command: ${cmd}`);
     }
@@ -432,4 +445,5 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+const launchedAsCli = Boolean(process.argv[1]) && path.resolve(process.argv[1]!) === fileURLToPath(import.meta.url);
+if (launchedAsCli) await runCli();

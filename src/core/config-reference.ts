@@ -3,7 +3,7 @@ import path from "node:path";
 import { hubPaths } from "./config.ts";
 import { parse, modify, applyEdits, type ParseError } from "jsonc-parser";
 import { parseDocument, isMap } from "yaml";
-import { readText, removeFile, writeText } from "./fsx.ts";
+import { readText, removeFile, writeText, pruneBackupDir } from "./fsx.ts";
 
 export type ConfigReference = { path: string; key: "instructions" | "read"; format: "jsonc" | "yaml" };
 export type ReferenceState = ConfigReference & { value: string; added: boolean; originalPath: string | null; writtenHash: string };
@@ -49,7 +49,10 @@ export async function attachReference(ref: ConfigReference, value: string, previ
       ? edit(current, ref, values => { const rest = values.filter(v => v !== value); return rest.length ? rest : undefined; })
       : current;
     originalPath = clean === null ? null : path.join(hubPaths().backups, "autoload-config", `${randomUUID()}.${ref.format}`);
-    if (originalPath !== null) await writeText(originalPath, clean!);
+    if (originalPath !== null) {
+      await writeText(originalPath, clean!);
+      await pruneBackupDir(path.dirname(originalPath));
+    }
   }
   if (written !== current) await writeText(ref.path, written);
   return { ...ref, value, added, originalPath, writtenHash: hash(written) };

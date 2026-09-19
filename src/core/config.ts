@@ -1,4 +1,5 @@
 import { assertSafeWritePath, exists, writeText } from "./fsx.ts";
+import { HubError } from "./errors.ts";
 import { withHubLock } from "./transaction.ts";
 import { randomBytes } from "node:crypto";
 import fsSync from "node:fs";
@@ -33,9 +34,11 @@ export function initialEnabled(home = homedir()): AgentId[] {
   return AGENT_IDS.filter((id) => CORE_AGENT_IDS.includes(id) || detected.has(id));
 }
 
+export const CURRENT_SCHEMA = 5;
+
 export function defaultConfig(): HubConfig {
   return {
-    schema_version: 5,
+    schema_version: CURRENT_SCHEMA,
     agents: { enabled: initialEnabled() },
     layers: {
       skills: { default_targets: ["*"] },
@@ -207,11 +210,18 @@ export async function loadConfig(): Promise<HubConfig> {
     bind[id] = mergeBind(id, bindRaw[id]);
   }
 
+  const rawVersion = parsed.schema_version;
+  if (rawVersion != null && rawVersion !== "") {
+    const n = typeof rawVersion === "number" ? rawVersion : Number(rawVersion);
+    if (!Number.isInteger(n) || n < 1) throw new HubError("config.toml schema_version 无效", 400);
+    if (n > CURRENT_SCHEMA) throw new HubError("config.toml 的 schema 比当前 Hub 新，请升级 CLI", 409);
+  }
+
   const adapters = mergeAdapters(parsed.adapters);
   cachedAdapters = adapters;
 
   const loaded: HubConfig = {
-    schema_version: 5,
+    schema_version: CURRENT_SCHEMA,
     agents: { enabled },
     layers: mergeLayers(parsed.layers, defaults.layers),
     bind,
@@ -259,6 +269,10 @@ function mergeLayers(raw: unknown, defaults: HubConfig["layers"]): HubConfig["la
   if (Array.isArray(sessions?.index)) {
     const ids = sessions.index.filter(isAgentId);
     layers.sessions.index = ids;
+  }
+  const vault = obj.vault as { default?: unknown } | undefined;
+  if (vault?.default === "off" || vault?.default === "own" || vault?.default === "hub") {
+    layers.vault.default = vault.default;
   }
   return layers;
 }

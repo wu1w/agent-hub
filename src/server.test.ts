@@ -85,16 +85,19 @@ test("memory source commits with an explicit delivery failure; a failed target r
   const before = await fs.readFile(hubPaths().memoryGlobal, "utf8");
   const native = path.join(home, ".workbuddy/MEMORY.md");
   const originalNative = await fs.readFile(native, "utf8");
-  const saved = await api("/api/file?kind=memory&name=global", { method: "PUT", body: JSON.stringify({ content: "x".repeat(4500) }) });
+  const current = await api("/api/file?kind=memory&name=global");
+  const saved = await api("/api/file?kind=memory&name=global", { method: "PUT", body: JSON.stringify({ content: "x".repeat(4500), revision: current.body.revision }) });
   assert.equal(saved.status, 200);
   assert.equal(await fs.readFile(hubPaths().memoryGlobal, "utf8"), "x".repeat(4500));
   const delivery = saved.body.delivery as { failures: { agent: string; error: string }[] };
   assert.ok(delivery.failures.some(f => f.agent === "workbuddy" && /上限/.test(f.error)));
   assert.equal(await fs.readFile(native, "utf8"), originalNative);
   // Retrying with content inside the budget repairs the target and clears failures.
-  const recovered = await api("/api/file?kind=memory&name=global", { method: "PUT", body: JSON.stringify({ content: before }) });
+  const recovered = await api("/api/file?kind=memory&name=global", { method: "PUT", body: JSON.stringify({ content: before, revision: saved.body.revision }) });
   assert.equal(recovered.status, 200);
   assert.deepEqual((recovered.body.delivery as { failures: unknown[] }).failures, []);
+  const missingRevision = await api("/api/file?kind=memory&name=global", { method: "PUT", body: JSON.stringify({ content: before }) });
+  assert.equal(missingRevision.status, 428);
   const off = await api("/api/bind", { method: "POST", body: JSON.stringify({ agent: "workbuddy", layer: "memory", value: "own" }) });
   assert.equal(off.status, 200);
 });
@@ -130,7 +133,7 @@ test("file allowlist rejects path escape and skill read does not need agent", as
     method: "PUT",
     body: JSON.stringify({ content: "x", revision: "path-validation-fixture" }),
   });
-  assert.equal(res.status, 500);
+  assert.equal(res.status, 400);
   assert.match(String(res.body.error), /invalid skill/);
 });
 
@@ -324,6 +327,49 @@ test("same-host different-port origin is rejected", async () => {
   assert.equal(response.status, 403);
 });
 
+async function rawHttp(headers: string[], body = ""): Promise<string> {
+  const net = await import("node:net");
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port });
+    let data = "";
+    socket.setTimeout(5000, () => { socket.destroy(); reject(new Error("request timed out")); });
+    socket.on("connect", () => socket.write(`${headers.join("\r\n")}\r\n\r\n${body}`));
+    socket.on("data", (chunk) => { data += chunk.toString(); });
+    socket.on("error", reject);
+    socket.on("end", () => resolve(data));
+  });
+}
+
+test("non-loopback Host is rejected; localhost is allowed", async () => {
+  const blocked = await rawHttp(["GET /api/snapshot HTTP/1.1", "Host: evil.example", "Connection: close"]);
+  assert.match(blocked, /HTTP\/1\.1 403/);
+  assert.match(blocked, /host not allowed/);
+  const local = await rawHttp(["GET /api/snapshot HTTP/1.1", "Host: localhost", "Connection: close"]);
+  assert.match(local, /HTTP\/1\.1 401/);
+  assert.match(local, /session required/);
+});
+
+test("request bodies over 2MB are rejected", async () => {
+  const res = await fetch(`http://127.0.0.1:${port}/api/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "x".repeat(2_000_001),
+  });
+  assert.equal(res.status, 413);
+  assert.equal((await res.json()).error, "request body too large");
+});
+
+test("x-hub-token without a cookie mints hub_session on API responses", async () => {
+  const res = await fetch(`http://127.0.0.1:${port}/api/snapshot`, {
+    headers: { "x-hub-token": hubToken },
+  });
+  assert.equal(res.status, 200);
+  const setCookie = res.headers.get("set-cookie") ?? "";
+  assert.match(setCookie, /hub_session=/);
+  assert.match(setCookie, /HttpOnly/);
+  assert.match(setCookie, /SameSite=Strict/);
+});
+
 test("A06 Vault save and grants roll back ciphertext/revision when catalog delivery fails", async () => {
   const { saveVaultFromMarkdown, vaultUiPayload, loadVault } = await import("./core/vault.ts");
   const { setBind } = await import("./core/config.ts");
@@ -486,7 +532,18 @@ test("session content API normalizes roles and falls back to raw for thin transc
   const thin = await api(`/api/session/content?agent=grok&id=${thinSid}`);
   assert.equal(thin.status, 200);
   assert.equal((thin.body.messages as unknown[]).length, 1);
-  assert.match(String(thin.body.raw), /only one/);
+  assert.equal(thin.body.raw, undefined);
+
+  const opaqueSid = "dddddddd-eeee-ffff-aaaa-bbbbbbbbbbbb";
+  const opaqueDir = path.join(home, ".grok", "sessions", encodeURIComponent("/tmp/demo"), opaqueSid);
+  await fs.mkdir(opaqueDir, { recursive: true });
+  await fs.writeFile(path.join(opaqueDir, "summary.json"), JSON.stringify({ info: { id: opaqueSid, cwd: "/tmp/demo" }, generated_title: "opaque" }));
+  await fs.writeFile(path.join(opaqueDir, "chat_history.jsonl"), JSON.stringify({ type: "session_meta", payload: { session_id: opaqueSid } }) + "\n");
+  assert.equal((await api("/api/index", { method: "POST", body: "{}" })).status, 200);
+  const opaque = await api(`/api/session/content?agent=grok&id=${opaqueSid}`);
+  assert.equal(opaque.status, 200);
+  assert.equal((opaque.body.messages as unknown[]).length, 0);
+  assert.match(String(opaque.body.raw), /session_meta/);
 });
 
 test("agent-layer API reads ctx and memory projections without writing", async () => {
@@ -545,4 +602,32 @@ test("catalog API enables an adapter without leaking vault secrets on exec-plan"
   assert.equal(plan.status, 200);
   assert.deepEqual(plan.body.argv, ["hub", "vault", "exec", "--for", "grok", "--", "grok"]);
   assert.doesNotMatch(JSON.stringify(plan.body), /sk-http-secret|HUB_VAULT_/);
+  const hyperPlan = await api("/api/vault/exec-plan?agent=hyper");
+  assert.equal(hyperPlan.status, 200);
+  assert.deepEqual(hyperPlan.body.argv, ["hub", "vault", "exec", "--for", "hyper", "--", "grok-hyper"]);
+});
+
+test("unexpected errors do not leak filesystem paths", async () => {
+  const { apiErrorPayload } = await import("./server.ts");
+  const payload = apiErrorPayload(new Error("ENOENT: no such file or directory, open '/Users/william/.agent-hub/vault.bin'"));
+  assert.equal(payload.status, 500);
+  assert.equal(payload.error, "internal error");
+});
+
+test("POST /api/vault/restore-previous reloads the last saved ciphertext", async () => {
+  const firstRev = (await api("/api/vault")).body.revision;
+  const first = await api("/api/vault", {
+    method: "PUT",
+    body: JSON.stringify({ markdown: "## restore-me\n密钥: FIRST-SECRET-VALUE\n", revision: firstRev }),
+  });
+  assert.equal(first.status, 200);
+  const second = await api("/api/vault", {
+    method: "PUT",
+    body: JSON.stringify({ markdown: "## restore-me\n密钥: SECOND-SECRET-VALUE\n", revision: first.body.revision }),
+  });
+  assert.equal(second.status, 200);
+  const restored = await api("/api/vault/restore-previous", { method: "POST", body: "{}" });
+  assert.equal(restored.status, 200);
+  const revealed = await api("/api/vault?reveal=1");
+  assert.match(String(revealed.body.markdown), /FIRST-SECRET-VALUE/);
 });

@@ -117,7 +117,7 @@ test("R6 vault decrypt failure aborts indexing without writing session text", as
     JSON.stringify({ info: { id: "sid", cwd: home }, generated_title: "example", session_summary: secret }),
   );
   process.env.AGENT_HUB_VAULT_KEY = randomBytes(32).toString("hex");
-  await assert.rejects(rebuildIndex("grok"), /保险库暂不可用/);
+  await assert.rejects(rebuildIndex("grok"), /Vault unavailable/);
   assert.equal(getSession("grok", "sid"), null);
 });
 

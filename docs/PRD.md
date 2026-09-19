@@ -206,7 +206,7 @@ WorkBuddy 的 `IDENTITY.md` + `SOUL.md` 归 Identity；其 `USER.md` 才参与 C
 
 ## 热门 Agent 扩展（2026-09-16）
 
-现有 23 个适配器。新增 OpenCode、Gemini CLI、Cline、Roo Code（已归档）、Kilo Code、Windsurf、GitHub Copilot CLI、Goose、Qwen Code、Pi、OpenClaw、Aider、ZCode、Grok Bot、豆包、Kimi Code，当前开放 Memory 原生自动加载，其他层明确禁用（Grok Bot、豆包无原生入口，仅手工导入导出）。默认 Own；新入口与配置登记使用同一事务，撤销保留用户内容。配置 schema 4 将旧版默认七项列表扩展为二十三项，保留显式裁剪列表。详见[适配范围、原生文档与验证边界](popular-agents-2026-09-16.md)。
+现有 23 个适配器。新增 OpenCode、Gemini CLI、Cline、Roo Code（已归档）、Kilo Code、Windsurf、GitHub Copilot CLI、Goose、Qwen Code、Pi、OpenClaw、Aider、ZCode、Grok Bot、豆包、Kimi Code，当前开放 Memory 原生自动加载，其他层明确禁用（Grok Bot、豆包无原生入口，仅手工导入导出）。默认 Own；新入口与配置登记使用同一事务，撤销保留用户内容。配置 schema 5：默认启用 CORE_AGENT_IDS（原五项），已检测到安装的适配器自动加入 enabled；不再静默把目录扩为 23 项。详见[适配范围、原生文档与验证边界](popular-agents-2026-09-16.md)。
 
 ### 第四轮边界修正
 

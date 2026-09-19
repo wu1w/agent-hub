@@ -25,7 +25,12 @@ function bump(): void {
 function watchDir(dir: string): void {
   try {
     if (!fs.existsSync(dir)) return;
-    const watcher = fs.watch(dir, { persistent: false }, () => bump());
+    let watcher: fs.FSWatcher;
+    try {
+      watcher = fs.watch(dir, { persistent: false, recursive: true }, () => bump());
+    } catch {
+      watcher = fs.watch(dir, { persistent: false }, () => bump());
+    }
     watcher.on("error", () => {});
     watchers.push(watcher);
   } catch {

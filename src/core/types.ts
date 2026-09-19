@@ -107,6 +107,7 @@ export type AgentSnapshot = {
   memoryLoading: { mode: "global" | "workspace" | "manual"; paths: string[]; note: string };
   vaultCatalogPath: string;
   sessionRoot: string | null;
+  command: string;
   subagents: SubagentFile[];
 };
 

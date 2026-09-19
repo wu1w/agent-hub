@@ -6,6 +6,10 @@ export type SecretMaterial = {
   secrets: string[];
 };
 
+/** Values shorter than this are skipped during redaction. A PIN like "1234"
+ *  would otherwise rewrite session titles, dates, and IDs that happen to contain it. */
+export const MIN_REDACT_SECRET_LENGTH = 8;
+
 export async function loadSecretMaterial(): Promise<SecretMaterial> {
   try {
     const store = await loadVault();
@@ -14,7 +18,7 @@ export async function loadSecretMaterial(): Promise<SecretMaterial> {
       for (const field of entry.fields) {
         if (!field.secret) continue;
         const value = field.value.trim();
-        if (value) out.push(value);
+        if (value.length >= MIN_REDACT_SECRET_LENGTH) out.push(value);
       }
     }
     return { ok: true, secrets: out.sort((a, b) => b.length - a.length) };
@@ -25,7 +29,12 @@ export async function loadSecretMaterial(): Promise<SecretMaterial> {
 
 export async function requireSecretMaterial(): Promise<SecretMaterial> {
   const material = await loadSecretMaterial();
-  if (!material.ok) throw new HubError("保险库暂不可用，已暂停索引和交接访问；原文件保持不变，请恢复保险库后重试", 503);
+  if (!material.ok) {
+    throw new HubError(
+      "Vault unavailable; indexing and handoff are paused. Source files are unchanged. Restore the vault and retry.",
+      503,
+    );
+  }
   return material;
 }
 
@@ -37,10 +46,12 @@ export async function knownSecrets(): Promise<string[]> {
 export function redactSecrets(text: string, secrets: string[]): string {
   let out = text;
   for (const secret of secrets) {
-    if (!secret) continue;
+    if (!secret || secret.length < MIN_REDACT_SECRET_LENGTH) continue;
     // Also scrub legacy derived forms and JSON-escaped transcripts.
     const variants = [secret, secret.replace(/\s+/g, " ").trim(), JSON.stringify(secret).slice(1, -1)];
-    for (const value of variants.sort((a, b) => b.length - a.length)) if (value) out = out.split(value).join("***");
+    for (const value of variants.sort((a, b) => b.length - a.length)) {
+      if (value.length >= MIN_REDACT_SECRET_LENGTH) out = out.split(value).join("***");
+    }
   }
   return out;
 }

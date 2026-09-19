@@ -1,0 +1,69 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "tap",
+  "plugins": ["@stryker-mutator/tap-runner"],
+  "tap": {
+    "testFiles": [
+      "src/core/!(module-coverage|runtime-fixes-20260918|runtime-ui-fixes-20260918).test.ts"
+    ],
+    "nodeArgs": [
+      "--import",
+      "tsx",
+      "--import",
+      "{{hookFile}}",
+      "--test-reporter=tap",
+      "--test-concurrency=1"
+    ],
+    "forceBail": true
+  },
+  "mutate": [
+    "src/cli.ts",
+    "src/core/adapters.ts",
+    "src/core/autoload.ts",
+    "src/core/bind.ts",
+    "src/core/config-reference.ts",
+    "src/core/config.ts",
+    "src/core/deliver.ts",
+    "src/core/delivery-safety.ts",
+    "src/core/errors.ts"
+  ],
+  "ignorePatterns": [
+    ".agent-hub-data",
+    "docs",
+    "scripts",
+    "reports",
+    "*.md",
+    "demos",
+    "web/brand",
+    "web/*.png",
+    "web/*.jpg"
+  ],
+  "disableTypeChecks": "src/**/*.ts",
+  "reporters": ["html", "json", "clear-text", "progress"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/core/index.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/core/report.json"
+  },
+  "incremental": true,
+  "incrementalFile": "reports/mutation/core/stryker-incremental.json",
+  "coverageAnalysis": "perTest",
+  "timeoutMS": 8000,
+  "timeoutFactor": 1.5,
+  "dryRunTimeoutMinutes": 15,
+  "concurrency": 6,
+  "ignoreStatic": true,
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  },
+  "clearTextReporter": {
+    "allowColor": true,
+    "logTests": false,
+    "reportMutants": false,
+    "skipFull": true
+  }
+}

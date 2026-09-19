@@ -8,6 +8,7 @@ let selectedSkill = null;
 let skillDirty = false;
 let skillRevision;
 let skillBusy = false;
+let skillLoadEpoch = 0;
 let skillFilter = "";
 let skillQuery = "";
 let loadedAgentsCwd = null;
@@ -29,6 +30,7 @@ let vaultLoaded = false;
 let vaultQuery = "";
 let selectedMemory = "global";
 let sessionState = { sessions: [], handoffs: [], selected: null };
+let sessionLoadEpoch = 0;
 let sessionTab = "content";
 let sessContentKey = "";
 let ctxView = "user";
@@ -40,6 +42,8 @@ let vaultRevealEpoch = 0;
 let vaultLoadEpoch = 0;
 let vaultState = { markdown: "", masked: "", entries: [], reveal: false, dirty: false };
 let currentPage = "overview";
+let langLoadEpoch = 0;
+let bannerState = null;
 
 const LAYER_META = {
   skills: { label: "Skills", labelKey: "layer.skills", options: [["hub", "opt.hub"], ["own", "opt.own"]] },
@@ -66,15 +70,25 @@ function ctxHubBlockReason(agent) {
 function layerOptionBlock(agent, layer, value) {
   if (agent.memoryOnly && layer !== "memory") return t("block.memoryOnly");
   if (layer === "sessions" && !agent.supportsSessions) return t("block.noScanner");
-  if (layer === "memory" && value === "hub" && !agent.present) return t("block.notInstalled");
+  if ((layer === "memory" || layer === "ctx" || layer === "vault") && value === "hub" && !agent.present) return t("block.notInstalled");
   if (layer === "ctx" && value === "hub" && !allowsCtxHub(agent)) return ctxHubBlockReason(agent);
   return null;
 }
 
-function applyLanguage(lang) {
+async function applyLanguage(lang) {
   setLang(lang);
   applyDom(document);
   $$(".lang-btn").forEach((btn) => btn.classList.toggle("on", btn.dataset.lang === getLang()));
+  const epoch = ++langLoadEpoch;
+  if (snap) {
+    try {
+      const next = await api("/api/snapshot");
+      if (epoch === langLoadEpoch && next && Array.isArray(next.agents)) snap = next;
+    } catch {
+      /* keep last snapshot; chrome strings already switched */
+    }
+  }
+  if (epoch !== langLoadEpoch) return;
   if (snap) renderAll();
   if (!selectedSkill) {
     const meta = $("#skill-meta");
@@ -92,16 +106,46 @@ function applyLanguage(lang) {
     if (revealBtn) revealBtn.textContent = vaultState.reveal ? t("vault.hide") : t("vault.show");
     renderVaultEntries();
   }
+  refreshBanner();
 }
 
-function banner(text) {
+function paintBanner(text) {
   const el = $("#banner");
+  if (!el) return;
   if (!text) {
     el.hidden = true;
     return;
   }
   el.hidden = false;
   el.textContent = text;
+}
+
+function banner(text) {
+  bannerState = text ? { text: String(text) } : null;
+  paintBanner(text);
+}
+
+function bannerParams(key, params) {
+  if (key !== "banner.bound" || !params) return params;
+  const layerKey = LAYER_META[params.layer]?.labelKey ?? `layer.${params.layer}`;
+  return { label: params.label, layer: t(layerKey), value: t(`pill.${params.value}`) };
+}
+
+function notice(key, params) {
+  const text = t(key, bannerParams(key, params));
+  banner(text);
+  bannerState = { key, params };
+}
+
+function refreshBanner() {
+  const el = $("#banner");
+  if (!el || el.hidden || !bannerState?.key) return;
+  el.textContent = t(bannerState.key, bannerParams(bannerState.key, bannerState.params));
+}
+
+function keepDiskChangedQuiet() {
+  const el = $("#banner");
+  return Boolean(el && !el.hidden && bannerState && bannerState.key !== "banner.diskChanged");
 }
 
 function bootToken() {
@@ -120,9 +164,24 @@ async function api(path, opts = {}) {
       ...(opts.headers ?? {}),
     },
   });
-  const data = await res.json();
+  let data = {};
+  if (typeof res.text === "function") {
+    const text = await res.text();
+    if (text) {
+      try { data = JSON.parse(text); }
+      catch {
+        const message = apiErrorText(t("err.badJson"));
+        banner(message);
+        const error = new Error(message);
+        error.status = res.status;
+        throw error;
+      }
+    }
+  } else {
+    data = await res.json();
+  }
   if (res.status === 401) {
-    banner(t("err.session"));
+    notice("err.session");
     if (!location.pathname.endsWith("/login.html")) location.replace("/login.html");
   }
   if (res.status === 503 && /^\/api\/(?:index|sessions|handoff|reveal)(?:[/?]|$)/.test(path)) clearSessionView();
@@ -194,7 +253,9 @@ function renderNav() {
   badge.classList.toggle("warn", pending > 0);
   $("#nav-n-skills").textContent = String(snap.skills?.length ?? 0);
   $("#nav-n-memory").textContent = String(1 + (snap.memory?.projects?.length ?? 0));
-  $("#nav-n-sessions").textContent = fmtCount(snap.sessions?.count);
+  const ownOn = $("#session-own")?.checked;
+  const sessionCount = ownOn && snap.sessions?.all != null ? snap.sessions.all : snap.sessions?.count;
+  $("#nav-n-sessions").textContent = fmtCount(sessionCount);
   $("#nav-n-vault").textContent = snap.vault?.status === "unavailable" ? "!" : fmtCount(snap.vault?.count);
   $("#nav-n-agents").textContent = String(snap.agents?.length ?? 0);
 }
@@ -265,7 +326,7 @@ async function startOnboarding() {
       const report = selected.length ? await api("/api/adopt", { method: "POST", body: JSON.stringify({mode: "adopt", names: selected}) }) : { conflicts: [] };
       if (report.conflicts.length) { dialog.querySelector(".onboard-status").textContent = t("onboard.conflict"); return; }
       localStorage.setItem(`hub-onboard:${data.hubRoot}`, "done");
-      dialog.close(); await refresh(); banner(t("onboard.done"));
+      dialog.close(); await refresh(); notice("onboard.done");
     } catch (error) { dialog.querySelector(".onboard-status").textContent = error.message; }
     finally { button.disabled = false; }
   });
@@ -294,7 +355,8 @@ function renderSkillChips() {
 }
 
 function skillRowEl({ name, src, time, state, readonly, title, mounts, onClick }) {
-  const row = document.createElement("div");
+  const row = document.createElement(onClick ? "button" : "div");
+  if (onClick) row.type = "button";
   row.className = "skill-row" + (readonly ? " ro" : "") + (selectedSkill === name && !readonly ? " sel" : "");
   if (title) row.title = title;
   const dotCls = state ? ` ${state}` : "";
@@ -415,7 +477,7 @@ async function repairBroken() {
   const report = await api("/api/repair", { method: "POST", body: "{}" });
   snap = report.snapshot;
   renderAssets();
-  banner(t("banner.repaired", { repaired: report.repaired.length, leftover: report.leftover.length }));
+  notice("banner.repaired", { repaired: report.repaired.length, leftover: report.leftover.length });
 }
 
 function item(text) {
@@ -508,7 +570,7 @@ async function saveSkillTargets(targets) {
   renderSkills();
   renderSkillTargets();
   const label = targets == null ? t("skills.inherit") : targets.join(",") || t("banner.nobody");
-  banner(t("banner.targetsSaved", { name: selectedSkill, label }));
+  notice("banner.targetsSaved", { name: selectedSkill, label });
 }
 
 function renderSkillTargets() {
@@ -568,8 +630,10 @@ function renderSkillTargets() {
 async function openSkill(name) {
   if (skillBusy) return;
   if (skillDirty && !confirm(t("skills.discard"))) return;
+  const loadEpoch = ++skillLoadEpoch;
   selectedSkill = name;
   const file = await api(`/api/file?kind=skill&name=${encodeURIComponent(name)}`);
+  if (loadEpoch !== skillLoadEpoch) return;
   $("#skill-title").textContent = name;
   $("#skill-meta").textContent = file.path;
   const ed = $("#skill-editor");
@@ -757,7 +821,7 @@ async function syncMemoryEntries() {
 }
 
 async function openMemory(id) {
-  if (memoryBusy) { banner(t("memory.busy")); return false; }
+  if (memoryBusy) { notice("memory.busy"); return false; }
   if (memoryDirty && !confirm(t("memory.discard"))) return false;
   const loadEpoch = ++memoryLoadEpoch;
   const editEpoch = memoryEditEpoch;
@@ -767,7 +831,7 @@ async function openMemory(id) {
     const file = await api(`/api/file?kind=memory&name=${encodeURIComponent(id)}`);
     if (loadEpoch !== memoryLoadEpoch) return false;
     // Typing while the read was in flight cancels replacement of that draft.
-    if (editEpoch !== memoryEditEpoch) { banner(t("memory.newerDraft")); return false; }
+    if (editEpoch !== memoryEditEpoch) { notice("memory.newerDraft"); return false; }
     applyMemoryFile(id, file);
     showMemView("source");
     renderMemory();
@@ -807,13 +871,13 @@ function renderMemoryConflict() {
 
 async function loadMemoryConflict(id) {
   // The local editor and its base revision stay unchanged until the user resolves it.
-  banner(t("memory.conflictKept"));
+  notice("memory.conflictKept");
   try {
     const file = await api(`/api/file?kind=memory&name=${encodeURIComponent(id)}`);
     if (id !== selectedMemory) return;
     memoryConflict = { id, content: file.content, revision: file.revision };
     renderMemoryConflict();
-    banner(t("memory.conflictKept"));
+    notice("memory.conflictKept");
   } catch (error) {
     banner(`${t("memory.conflictKept")} ${error.message}`);
   }
@@ -963,6 +1027,12 @@ function segCtl(seg) {
 function renderAgents() {
   renderSnapshotWarnings();
   const root = $("#agent-cards");
+  const openFrom = (selector) => {
+    if (!root || typeof root.querySelectorAll !== "function") return new Set();
+    return new Set([...root.querySelectorAll(selector)].map((el) => el.closest?.("[data-agent]")?.dataset.agent).filter(Boolean));
+  };
+  const openIdentity = openFrom("details.id-block[open]");
+  const openFolds = openFrom("details.memo-fold[open]");
   root.replaceChildren();
   for (const agent of snap.agents) {
     const card = document.createElement("article");
@@ -1000,7 +1070,7 @@ function renderAgents() {
       try {
         snap = await api("/api/catalog", { method: "POST", body: JSON.stringify({ agent: agent.id, enabled: false }) });
         renderAll();
-        banner(t("banner.catalogOff", { id: agent.id }));
+        notice("banner.catalogOff", { id: agent.id });
       } catch (error) { banner(error.message); }
     });
     const bind = card.querySelector(".bind");
@@ -1022,7 +1092,7 @@ function renderAgents() {
         btn.className = agent.bind[layer] === value ? "on" : "";
         // Inlined layerOptionBlock: the ctx-ui test extracts renderAgents without that helper.
         const reason = groupBlock
-          ?? (layer === "memory" && value === "hub" && !agent.present ? t("block.notInstalled")
+          ?? ((layer === "memory" || layer === "ctx" || layer === "vault") && value === "hub" && !agent.present ? t("block.notInstalled")
             : layer === "ctx" && value === "hub" && !allowsCtxHub(agent) ? ctxHubBlockReason(agent)
             : null);
         if (reason) {
@@ -1066,12 +1136,12 @@ function renderAgents() {
       claim.type = "button";
       claim.className = "btn sm";
       claim.textContent = t("agents.vaultExec");
-      const cmd = `hub vault exec --for ${agent.id} -- ${agent.id === "cursor" ? "cursor" : agent.id}`;
+      const cmd = `hub vault exec --for ${agent.id} -- ${agent.command || agent.id}`;
       claim.title = t("agents.vaultExecHint", { cmd });
       claim.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(cmd);
-          banner(t("banner.copiedCmd"));
+          notice("banner.copiedCmd");
         } catch { banner(cmd); }
       });
       card.append(claim);
@@ -1086,7 +1156,7 @@ function renderAgents() {
         try {
           const file = await api("/api/file?kind=memory&name=global");
           await navigator.clipboard.writeText(file.content);
-          banner(t("agents.memoryCopied"));
+          notice("agents.memoryCopied");
         } catch (error) { banner(error.message); }
         finally { download.disabled = false; }
       });
@@ -1103,6 +1173,7 @@ function renderAgents() {
       for (const child of [...card.children].slice(1)) fold.append(child);
       card.append(fold);
       root.append(card);
+      if (openFolds.has(agent.id)) fold.setAttribute("open", "");
       continue;
     }
     const draft = card.querySelector(".draft-id");
@@ -1113,7 +1184,7 @@ function renderAgents() {
       const body = $("#user-editor").value.trim();
       editor.value = `${editor.value.trimEnd()}\n\n${body}\n`;
       editor.dispatchEvent(new Event("input", { bubbles: true }));
-      banner(t("banner.draftUser"));
+      notice("banner.draftUser");
     });
     wirePreview(card.querySelector(".id-editor"), card.querySelector(".preview-id"));
     card.querySelector(".save-id").addEventListener("click", () => saveIdentity(card, agent).catch(error => banner(error.message)));
@@ -1121,6 +1192,7 @@ function renderAgents() {
     card.querySelector(".restore-id").addEventListener("click", () => restoreIdentity(agent));
     renderSubagents(card, agent);
     root.append(card);
+    if (openIdentity.has(agent.id)) card.querySelector("details.id-block")?.setAttribute("open", "");
   }
   renderCatalog();
   filterAgentCards();
@@ -1152,7 +1224,7 @@ function renderCatalog() {
       try {
         snap = await api("/api/catalog", { method: "POST", body: JSON.stringify({ agent: row.id, enabled: true }) });
         renderAll();
-        banner(t("banner.catalogOn", { id: row.id }));
+        notice("banner.catalogOn", { id: row.id });
       } catch (error) { banner(error.message); }
       finally { btn.disabled = false; }
     });
@@ -1238,14 +1310,14 @@ async function loadIdentity(card, agent) {
     wirePreview(wrap.querySelector(".soul-editor"), wrap.querySelector(".preview-soul"));
     wrap.querySelector(".save-soul").addEventListener("click", async () => {
       await saveAgentDraft(wrap.querySelector(".soul-editor"), `soul:${agent.id}`, `/api/file?kind=soul&agent=${agent.id}`);
-      banner(t("banner.savedSoul", { label: agent.label }));
+      notice("banner.savedSoul", { label: agent.label });
     });
   }
 }
 
 async function saveIdentity(card, agent) {
   await saveAgentDraft(card.querySelector(".id-editor"), `identity:${agent.id}`, `/api/file?kind=identity&agent=${agent.id}`);
-  banner(t("banner.savedId", { label: agent.label }));
+  notice("banner.savedId", { label: agent.label });
 }
 
 async function openFile(kind, agent, name) {
@@ -1253,7 +1325,7 @@ async function openFile(kind, agent, name) {
     method: "POST",
     body: JSON.stringify({ kind, agent, name }),
   });
-  banner(t("banner.opened", { path: result.path }));
+  notice("banner.opened", { path: result.path });
 }
 
 function backupKindLabel(item) {
@@ -1266,7 +1338,7 @@ function backupKindLabel(item) {
 async function pickBackup(agent) {
   const listed = await api(`/api/identity/backups?agent=${agent.id}`);
   if (!listed.backups.length) {
-    banner(t("banner.noBackup"));
+    notice("banner.noBackup");
     return null;
   }
   const dlg = $("#backup-picker");
@@ -1321,7 +1393,7 @@ async function restoreIdentity(agent) {
     body: JSON.stringify({ agent: agent.id, backupName, legacy }),
   });
   await refresh();
-  banner(t("banner.restored", { kind: result.kind, path: result.path }));
+  notice("banner.restored", { kind: result.kind, path: result.path });
 }
 
 function renderSubagents(card, agent) {
@@ -1357,7 +1429,7 @@ function renderSubagents(card, agent) {
     const name = wrap.dataset.sub;
     if (!name) return;
     await saveAgentDraft(wrap.querySelector(".sub-editor"), `subagent:${agent.id}:${name}`, `/api/file?kind=subagent&agent=${agent.id}&name=${encodeURIComponent(name)}`);
-    banner(t("banner.wroteSub", { name }));
+    notice("banner.wroteSub", { name });
   });
   wrap.querySelector(".new-sub").addEventListener("click", async () => {
     const name = await Promise.resolve(askText({
@@ -1374,7 +1446,7 @@ function renderSubagents(card, agent) {
         body: JSON.stringify({ content: seed }),
       });
       await refresh();
-      banner(t("banner.createdSub", { name }));
+      notice("banner.createdSub", { name });
     } catch (error) { banner(error.message); }
     finally { button.disabled = false; }
   });
@@ -1528,7 +1600,7 @@ async function onBind(agent, layer, value, sel) {
   if (prev === value) return;
   if (layer === "ctx" && value === "hub" && !allowsCtxHub(agent)) {
     sel.value = prev;
-    banner(t("banner.blocked", { label: agent.label, reason: ctxHubBlockReason(agent) }));
+    notice("banner.blocked", { label: agent.label, reason: ctxHubBlockReason(agent) });
     return;
   }
   let skillsMode;
@@ -1591,8 +1663,10 @@ async function onBind(agent, layer, value, sel) {
     body: JSON.stringify({ agent: agent.id, layer, value, skillsMode }),
   });
   snap = result.snapshot;
-  banner(result.extra?.conflicts?.length ? t("banner.bindConflict") : t("banner.bound", { label: agent.label, layer, value }));
+  if (result.extra?.conflicts?.length) notice("banner.bindConflict");
+  else notice("banner.bound", { label: agent.label, layer, value });
   renderAll();
+  refreshBanner();
   } catch (error) {
     sel.value = prev;
     banner(error.message);
@@ -1611,9 +1685,9 @@ function bindChrome() {
       el.select?.();
       return;
     }
-    banner(t("search.none"));
+    notice("search.none");
   };
-  $$(".lang-btn").forEach((btn) => btn.addEventListener("click", () => applyLanguage(btn.dataset.lang)));
+  $$(".lang-btn").forEach((btn) => btn.addEventListener("click", () => applyLanguage(btn.dataset.lang).catch((err) => banner(String(err.message ?? err)))));
   $$(".navb").forEach((btn) => btn.addEventListener("click", () => go(btn.dataset.page)));
   window.addEventListener("hashchange", () => go(location.hash.replace("#/", "")));
   $("#side-search").addEventListener("click", focusSearch);
@@ -1632,7 +1706,7 @@ function bindChrome() {
   });
   $("#ov-act-broken").addEventListener("click", () => repairBroken().catch((err) => banner(String(err.message ?? err))));
   $("#ov-act-unadopted").addEventListener("click", () => startOnboarding().catch((err) => banner(String(err.message ?? err))));
-  $("#btn-scan-all").addEventListener("click", () => refresh().then(() => banner(t("banner.scanned"))));
+  $("#btn-scan-all").addEventListener("click", () => refresh().then(() => notice("banner.scanned")));
 
   $("#agent-filter").addEventListener("input", filterAgentCards);
   // Default on: show only agents with detected client evidence until the user opts out (persisted).
@@ -1667,22 +1741,22 @@ function bindChrome() {
   $("#btn-memory-scope").addEventListener("click", async () => {
     try {
       const result = await askScope();
-      if (result) banner(t("banner.scopeDone", { path: result.path }));
+      if (result) notice("banner.scopeDone", { path: result.path });
     } catch (err) { banner(String(err.message ?? err)); }
   });
-  $("#btn-scan").addEventListener("click", () => refresh().then(() => banner(t("banner.scanned"))));
+  $("#btn-scan").addEventListener("click", () => refresh().then(() => notice("banner.scanned")));
   $("#btn-scan-project").addEventListener("click", () => scanProjectSkills());
   $("#btn-open-agents").addEventListener("click", () => openAgentsMd());
   $("#btn-save-agents").addEventListener("click", async () => {
     const cwd = loadedAgentsCwd;
-    if (!cwd) { banner(t("banner.loadFileFirst")); return; }
+    if (!cwd) { notice("banner.loadFileFirst"); return; }
     const saved = await api(`/api/file?kind=agents-md&name=${encodeURIComponent(cwd)}`, {
       method: "PUT",
       body: JSON.stringify({ content: $("#agents-editor").value, revision: agentsRevision }),
     });
     agentsRevision = saved.revision;
     $("#agents-editor").dataset.loadedContent = saved.content;
-    banner(t("banner.savedAgents", { cwd }));
+    notice("banner.savedAgents", { cwd });
   });
   $("#btn-repair").addEventListener("click", () => repairBroken().catch((err) => banner(String(err.message ?? err))));
   $("#btn-adopt").addEventListener("click", async () => {
@@ -1693,7 +1767,7 @@ function bindChrome() {
       body: JSON.stringify({ mode: choice === "alt" ? "link-existing" : "adopt" }),
     });
     await refresh();
-    banner(t("banner.adopted", { moved: report.moved.length, linked: report.linked.length, conflicts: report.conflicts.length }));
+    notice("banner.adopted", { moved: report.moved.length, linked: report.linked.length, conflicts: report.conflicts.length });
   });
   $("#skill-q").addEventListener("input", () => {
     skillQuery = $("#skill-q").value.trim();
@@ -1721,7 +1795,7 @@ function bindChrome() {
     skillRevision = saved.revision;
     skillDirty = $("#skill-editor").value !== saved.content;
     $("#skill-saved").textContent = skillDirty ? t("skills.dirty") : t("skills.saved");
-    banner(t("banner.savedSkill", { name: selectedSkill }));
+    notice("banner.savedSkill", { name: selectedSkill });
     } catch (error) { banner(error.message); }
     finally { skillBusy = false; $("#btn-save-skill").disabled = false; }
   });
@@ -1751,7 +1825,7 @@ function bindChrome() {
     renderNav();
     renderOverview();
     renderSkills();
-    banner(t("banner.deleted"));
+    notice("banner.deleted");
   });
   $("#btn-open-user").addEventListener("click", () => openFile("user-md"));
   $("#btn-open-memory").addEventListener("click", () => openFile("memory", undefined, selectedMemory));
@@ -1759,7 +1833,7 @@ function bindChrome() {
     const report = await api("/api/import-memory", { method: "POST", body: "{}" });
     snap = report.snapshot;
     renderAssets();
-    banner(t("banner.imported", { imported: report.imported.length, skipped: report.skipped.length }));
+    notice("banner.imported", { imported: report.imported.length, skipped: report.skipped.length });
   });
   $("#user-editor").addEventListener("input", () => {
     userDirty = true;
@@ -1776,7 +1850,8 @@ function bindChrome() {
       userRevision = saved.revision;
       userDirty = $("#user-editor").value !== content;
       if (snap?.userMd) snap.userMd = { path: saved.path, content: saved.content };
-      banner(t("banner.savedUser") + (userDirty ? ` ${t("memory.newerDraft")}` : ""));
+      if (userDirty) banner(`${t("banner.savedUser")} ${t("memory.newerDraft")}`);
+      else notice("banner.savedUser");
     } catch (error) {
       banner(error.status === 409 ? t("banner.fileConflictKept") : error.message);
     } finally { userBusy = false; $("#btn-save-user").disabled = false; }
@@ -1807,7 +1882,7 @@ function bindChrome() {
       if (memoryDirty) {
         const saved = await saveMemoryDraft();
         if (!saved) return;
-        if (memoryDirty) { banner(t("memory.newerDraft")); return; }
+        if (memoryDirty) { notice("memory.newerDraft"); return; }
       }
       if (selectedMemory !== id) return;
       memoryBusy = true;
@@ -1861,13 +1936,13 @@ function bindChrome() {
     } catch (error) { banner(error.message); }
   });
   $("#btn-index").addEventListener("click", async () => {
-    banner(t("banner.indexing"));
+    notice("banner.indexing");
     const report = await api("/api/index", { method: "POST", body: "{}" });
     snap = report.snapshot;
     renderNav();
     renderOverview();
     await loadSessions();
-    banner(t("banner.indexed", { count: report.count ?? report.upserted, pruned: report.pruned }));
+    notice("banner.indexed", { count: report.count ?? report.upserted, pruned: report.pruned });
   });
   $("#session-q").addEventListener("input", () => {
     clearTimeout(window.__sessTimer);
@@ -1884,14 +1959,14 @@ function bindChrome() {
       method: "POST",
       body: JSON.stringify({ agent: row.agent_id, sessionId: row.session_id }),
     });
-    banner(t("banner.finder"));
+    notice("banner.finder");
   });
   $("#btn-handoff").addEventListener("click", async () => {
     const row = sessionState.selected;
     if (!row) return;
     const ownOnly = sessionIsOwn(row);
     if (ownOnly && !$("#session-own").checked) {
-      banner(t("banner.ownHandoff"));
+      notice("banner.ownHandoff");
       return;
     }
     const result = await api("/api/handoff", {
@@ -1924,8 +1999,9 @@ function bindChrome() {
       });
       $("#handoff-out").append(document.createElement("br"), launch);
     }
-    await loadSessions();
-    banner(t("banner.handoffWrote"));
+    notice("banner.handoffWrote");
+    try { await loadSessions(); }
+    catch (err) { banner(String(err.message ?? err)); }
   });
   $("#vault-editor").addEventListener("input", () => {
     vaultState.dirty = true;
@@ -1956,7 +2032,19 @@ function bindChrome() {
         body: JSON.stringify({ markdown: vaultState.markdown, revision: vaultState.revision, secretFields: vaultState.secretFields }),
       });
       applyVaultPayload(saved);
-      await refreshAfterVault(t("banner.vaultSaved"));
+      await refreshAfterVault("banner.vaultSaved");
+    } catch (err) { banner(String(err.message ?? err)); }
+    finally { setVaultBusy(false); }
+  });
+  $("#btn-vault-restore").addEventListener("click", async () => {
+    if (vaultBusy) return;
+    const choice = await confirmBox(t("vault.restoreConfirm"), t("vault.restorePrevious"));
+    if (choice !== "ok") return;
+    setVaultBusy(true);
+    try {
+      const restored = await api("/api/vault/restore-previous", { method: "POST", body: "{}" });
+      applyVaultPayload(restored);
+      await refreshAfterVault("banner.vaultRestored");
     } catch (err) { banner(String(err.message ?? err)); }
     finally { setVaultBusy(false); }
   });
@@ -1970,6 +2058,8 @@ function setVaultBusy(busy) {
   $("#vault-editor").readOnly = busy;
   $("#btn-save-vault").disabled = busy;
   $("#btn-vault-reveal").disabled = busy;
+  const restore = $("#btn-vault-restore");
+  if (restore) restore.disabled = busy;
 }
 
 async function loadVault() {
@@ -1982,14 +2072,14 @@ async function loadVault() {
   applyVaultPayload(data);
 }
 
-async function refreshAfterVault(message) {
+async function refreshAfterVault(key, params) {
   try {
     const updated = await api("/api/snapshot");
     snap = updated;
     renderAll();
-    banner(message);
+    notice(key, params);
   } catch (error) {
-    banner(t("banner.refreshFail", { message, error: error.message }));
+    notice("banner.refreshFail", { message: t(key, params), error: error.message });
   }
 }
 
@@ -2044,7 +2134,7 @@ function renderVaultEntries() {
       btn.textContent = agent.id;
       btn.addEventListener("click", async () => {
         if (vaultBusy) return;
-        if (vaultState.dirty) { banner(t("banner.vaultDraftFirst")); return; }
+        if (vaultState.dirty) { notice("banner.vaultDraftFirst"); return; }
         const set = new Set(entry.agents);
         if (set.has(agent.id)) set.delete(agent.id);
         else set.add(agent.id);
@@ -2055,7 +2145,7 @@ function renderVaultEntries() {
             body: JSON.stringify({ id: entry.id, agents: [...set], revision: vaultState.revision }),
           });
           applyVaultPayload(saved);
-          await refreshAfterVault(t("banner.vaultGrant", { id: entry.id, who: [...set].join(", ") || t("banner.nobody") }));
+          await refreshAfterVault("banner.vaultGrant", { id: entry.id, who: [...set].join(", ") || t("banner.nobody") });
         } catch (err) { banner(String(err.message ?? err)); }
         finally { setVaultBusy(false); }
       });
@@ -2072,21 +2162,22 @@ function renderVaultEntries() {
         vaultState.secretFields[entry.id] = [...new Set([...(vaultState.secretFields[entry.id] || []), name])];
         vaultState.dirty = true;
         if (!vaultState.reveal) $("#vault-editor").value = maskNow(vaultState.markdown);
-        banner(t("banner.vaultSecretAdded"));
+        notice("banner.vaultSecretAdded");
       });
     });
     const unmarkSecret = document.createElement("button");
     unmarkSecret.type = "button";
     unmarkSecret.className = "btn sm";
     unmarkSecret.textContent = t("vault.unmarkSecret");
+    unmarkSecret.addEventListener("mousedown", (ev) => ev.preventDefault());
     unmarkSecret.addEventListener("click", () => {
       if (vaultBusy) return;
-      if (!vaultState.reveal) { banner(t("banner.vaultNeedReveal")); return; }
+      if (!vaultState.reveal) { notice("banner.vaultNeedReveal"); return; }
       whenText(askText({ title: t("banner.vaultPromptUnmark", { id: entry.id }) }), (name) => {
-        if (/密钥|密码|token|key|secret/i.test(name)) { banner(t("banner.vaultKeepSecret")); return; }
+        if (/密钥|密码|token|key|secret/i.test(name)) { notice("banner.vaultKeepSecret"); return; }
         vaultState.secretFields[entry.id] = (vaultState.secretFields[entry.id] || []).filter(field => field !== name);
         vaultState.dirty = true;
-        banner(t("banner.vaultUnmarked"));
+        notice("banner.vaultUnmarked");
       });
     });
     wrap.append(title, grants, markSecret, unmarkSecret);
@@ -2097,10 +2188,12 @@ function renderVaultEntries() {
 function maskNow(md) {
   let entry = "";
   let secret = false;
+  const TOP_FIELD = /^([^ \t#:：][^:：]*)[:：]\s*(.*)$/;
   return md.split("\n").flatMap((line) => {
     const heading = line.match(/^##\s+(.+?)\s*$/);
     if (heading) { entry = heading[1].trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); secret = false; return [line]; }
-    const field = line.match(/^([^:：]+)[:：]\s*(.*)$/);
+    if (line.startsWith("  ")) return [secret && line.trim() ? "  ••••••••" : line];
+    const field = line.match(TOP_FIELD);
     if (field) {
       const name = field[1].trim();
       secret = !/^(说明|desc|description)$/i.test(name) && (/密钥|密码|token|key|secret/i.test(name) || (vaultState.secretFields?.[entry] ?? []).includes(name));
@@ -2140,7 +2233,7 @@ async function toggleVaultReveal() {
 async function scanProjectSkills() {
   const cwd = $("#project-cwd").value.trim();
   if (!cwd) {
-    banner(t("banner.needCwd"));
+    notice("banner.needCwd");
     return;
   }
   const data = await api(`/api/project-skills?cwd=${encodeURIComponent(cwd)}`);
@@ -2166,7 +2259,7 @@ async function scanProjectSkills() {
         snap = result.snapshot;
         renderAssets();
         await scanProjectSkills();
-        banner(t("banner.promoted", { name: row.name }));
+        notice("banner.promoted", { name: row.name });
       });
       li.append(btn);
     }
@@ -2178,7 +2271,7 @@ async function openAgentsMd() {
   if (loadedAgentsCwd && $("#agents-editor").value !== $("#agents-editor").dataset.loadedContent && !confirm(t("banner.discardAgents"))) return;
   const cwd = $("#agents-cwd").value.trim();
   if (!cwd) {
-    banner(t("banner.needCwd"));
+    notice("banner.needCwd");
     return;
   }
   const file = await api(`/api/file?kind=agents-md&name=${encodeURIComponent(cwd)}`);
@@ -2187,7 +2280,7 @@ async function openAgentsMd() {
   $("#agents-path").textContent = file.path;
   $("#agents-editor").value = file.content;
   $("#agents-editor").dataset.loadedContent = file.content;
-  if (!file.exists) banner(t("banner.noAgentsMd"));
+  if (!file.exists) notice("banner.noAgentsMd");
 }
 
 /* ================= sessions ================= */
@@ -2229,13 +2322,12 @@ function renderSessionMessages(data) {
     div.append(role, text);
     flow.append(div);
   }
-  if (!data.messages.length && data.raw) {
+  const spoken = data.messages.some((msg) => msg.role === "user" || msg.role === "assistant");
+  if (!spoken && data.raw) {
     const hint = document.createElement("p");
     hint.className = "hint";
     hint.textContent = t("sessions.noMessages");
     flow.append(hint);
-  }
-  if (data.raw) {
     const pre = document.createElement("pre");
     pre.className = "handoff-out";
     pre.textContent = data.raw;
@@ -2281,14 +2373,16 @@ function clearSessionView() {
 }
 
 async function loadSessions() {
+  const epoch = ++sessionLoadEpoch;
   const q = encodeURIComponent($("#session-q").value.trim());
   const own = $("#session-own").checked ? "1" : "0";
   let data;
   try { data = await api(`/api/sessions?q=${q}&own=${own}&limit=120`); }
   catch (error) {
-    clearSessionView();
+    if (epoch !== sessionLoadEpoch) return;
     throw error;
   }
+  if (epoch !== sessionLoadEpoch) return;
   sessionState.unavailable = false;
   if (!sessionState.selected) $("#session-meta").textContent = t("sessions.metaPick");
   sessionState.sessions = data.sessions;
@@ -2298,6 +2392,7 @@ async function loadSessions() {
   }
   updateHandoffButton();
   renderSessions();
+  renderNav();
 }
 
 function renderSessions() {
@@ -2315,7 +2410,9 @@ function renderSessions() {
     const summary = oneLine(row.summary);
     const extra = summary && summary !== title ? `<span class="summary">${esc(summary)}</span>` : "";
     tr.innerHTML = `<td class="mono">${esc(row.agent_id)}</td><td>${esc(title)}${extra}</td><td class="mono">${esc(row.cwd || "—")}</td><td class="mono">${esc(when)}</td>`;
-    tr.addEventListener("click", () => {
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    const openRow = () => {
       sessionState.selected = row;
       $("#session-meta").textContent = `${row.agent_id} · ${row.session_id}`;
       $("#session-path").textContent = row.source_path;
@@ -2327,6 +2424,13 @@ function renderSessions() {
       renderSessions();
       sessTab("content");
       openSessionContent(row);
+    };
+    tr.addEventListener("click", openRow);
+    tr.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openRow();
+      }
     });
     body.append(tr);
   }
@@ -2353,7 +2457,7 @@ function renderSessions() {
       launchBtn.disabled = true;
       try {
         await api("/api/handoff/launch", { method: "POST", body: JSON.stringify({ id: itemRow.id }) });
-        banner(t("banner.handoffLaunched"));
+        notice("banner.handoffLaunched");
       } catch (err) { banner(String(err.message ?? err)); }
       finally { launchBtn.disabled = false; }
     });
@@ -2364,7 +2468,7 @@ function renderSessions() {
     copyBtn.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(itemRow.path);
-        banner(t("banner.pathCopied"));
+        notice("banner.pathCopied");
       } catch { banner(itemRow.path); }
     });
     acts.append(openBtn, launchBtn, copyBtn);
@@ -2378,7 +2482,7 @@ async function openHandoffSession(rec) {
   await loadSessions();
   const row = sessionState.sessions.find((s) => s.agent_id === rec.from && s.session_id === rec.sessionId);
   if (!row) {
-    banner(t("sessions.notInList"));
+    notice("sessions.notInList");
     return;
   }
   sessionState.selected = row;
@@ -2407,7 +2511,7 @@ setInterval(() => {
     if (next.diskEpoch !== snap.diskEpoch) {
       snap = next;
       renderAll();
-      banner(t("banner.diskChanged"));
+      if (!keepDiskChangedQuiet()) notice("banner.diskChanged");
     }
   }).catch(() => {});
 }, 8000);

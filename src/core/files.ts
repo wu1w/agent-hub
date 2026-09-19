@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { HubError } from "./errors.ts";
 import { assertProjectId } from "./memory.ts";
 import { transaction } from "./transaction.ts";
@@ -6,10 +8,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { adapter, homedir } from "./adapters.ts";
 import { hubPaths } from "./config.ts";
-import { assertAbsolutePath, assertSafeName, exists, isDir, readText, realpathOr, writeText } from "./fsx.ts";
+import { assertAbsolutePath, assertSafeName, exists, isDir, parseJsonOr, pruneBackupDir, readText, realpathOr, writeText } from "./fsx.ts";
 import { assertSkillName, writeHubSkill } from "./skills.ts";
 import { syncIdentityNative } from "./identity-native.ts";
 import type { AgentId } from "./types.ts";
+
+const exec = promisify(execFile);
 
 export type FileKind = "user-md" | "identity" | "soul" | "skill" | "subagent" | "memory" | "agents-md";
 
@@ -28,6 +32,25 @@ async function assertInside(root: string, target: string): Promise<void> {
   }
 }
 
+async function assertAgentsMdWorkspace(root: string): Promise<void> {
+  if (!(await isDir(root))) throw new Error("cwd not a directory");
+  const resolved = path.resolve(root);
+  const state = parseJsonOr<{ scopes?: { cwd?: string }[] }>(
+    await readText(path.join(hubPaths().memory, "inject-state.json")),
+    {},
+  );
+  if ((state.scopes ?? []).some((scope) => typeof scope.cwd === "string" && path.resolve(scope.cwd) === resolved)) return;
+  try {
+    const gitRoot = (await exec("git", ["-C", resolved, "rev-parse", "--show-toplevel"])).stdout.trim();
+    const realRoot = (await realpathOr(resolved)) ?? resolved;
+    const realGit = (await realpathOr(gitRoot)) ?? path.resolve(gitRoot);
+    if (realGit === realRoot) return;
+  } catch {
+    // Not a Git worktree root.
+  }
+  throw new HubError("AGENTS.md is limited to a registered workspace or a Git repository root", 400);
+}
+
 export async function allowedRead(kind: FileKind, agent?: AgentId, name?: string): Promise<string> {
   const home = homedir();
   const p = hubPaths();
@@ -35,6 +58,7 @@ export async function allowedRead(kind: FileKind, agent?: AgentId, name?: string
   if (kind === "agents-md") {
     if (!name) throw new Error("cwd required");
     const root = assertAbsolutePath(name, "cwd");
+    await assertAgentsMdWorkspace(root);
     const target = path.join(root, "AGENTS.md");
     await assertInside(root, target);
     return target;
@@ -143,7 +167,7 @@ export async function writeAllowed(
     const target = await allowedRead(kind, agent, name);
     if (kind === "agents-md") {
       const root = path.dirname(target);
-      if (!(await isDir(root))) throw new Error("cwd not a directory");
+      await assertAgentsMdWorkspace(root);
       await writeText(target, content);
       return { path: target };
     }
@@ -245,6 +269,7 @@ async function backupAgentFile(
     subagent: kind === "subagent" ? subName : undefined,
     createdAt: new Date().toISOString(),
   });
+  await pruneBackupDir(dir);
   return bak;
 }
 

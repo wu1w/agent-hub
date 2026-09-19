@@ -233,7 +233,7 @@ test("F13 Own→Hub requires an explicit mode and failed inject does not commit 
   await fs.mkdir(path.join(home, ".grok", "memory", "hub-generated.md"), { recursive: true });
   await assert.rejects(
     () => applyBind({ agent: "grok", layer: "memory", value: "hub" }),
-    (err: unknown) => err instanceof HubError && err.status === 500,
+    (err: unknown) => err instanceof HubError && err.status === 409,
   );
   assert.equal((await loadConfig()).bind.grok.memory, "own");
 });

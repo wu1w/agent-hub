@@ -195,7 +195,7 @@ test("T12/T13 real editor functions hide custom multiline fields and preserve a 
   vm.runInContext(helper.replaceAll("export function", "function"), ctx);
   ctx.edited = masked + "\n说明: NEW_NOTE";
   const merged = vm.runInContext("mergeVaultDraft(edited, vaultState.markdown)", ctx) as string;
-  assert.match(merged, /CUSTOM/); assert.match(merged, /FIRST\nSECOND/); assert.match(merged, /NEW_NOTE/);
+  assert.match(merged, /CUSTOM/); assert.match(merged, /FIRST\n  SECOND/); assert.match(merged, /NEW_NOTE/);
 });
 
 test("crashed writer journal recovers the original file before the next writer proceeds", async () => {

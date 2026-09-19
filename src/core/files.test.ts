@@ -32,12 +32,18 @@ test("skill and subagent names cannot escape their directories", async () => {
   await assert.rejects(() => allowedRead("skill", undefined, "a/../b"), /invalid skill/);
   await assert.rejects(() => allowedRead("subagent", "grok", "../../IDENTITY.md"), /invalid subagent/);
   await assert.rejects(() => allowedRead("memory", undefined, "../USER"), /invalid memory/);
+  await assert.rejects(() => allowedRead("memory", undefined, "a/../../escape"), /invalid memory/);
 });
 
 test("agents-md requires an absolute cwd", async () => {
   await assert.rejects(() => allowedRead("agents-md", undefined, "relative/repo"), /must be absolute/);
   const repo = path.join(home, "repo");
   await fs.mkdir(repo, { recursive: true });
+  await assert.rejects(() => writeAllowed("agents-md", "# repo\n", undefined, repo), /registered workspace|Git repository/);
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const exec = promisify(execFile);
+  await exec("git", ["init", "-q", repo]);
   const written = await writeAllowed("agents-md", "# repo\n", undefined, repo);
   assert.equal(written.path, path.join(repo, "AGENTS.md"));
   const read = await allowedRead("agents-md", undefined, repo);

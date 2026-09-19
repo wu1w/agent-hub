@@ -13,7 +13,7 @@ import { HubError } from "./core/errors.ts";
 import { createSubagent, createMemoryProject, listIdentityBackups, readAgentLayer, readAllowed, restoreIdentity, writeAllowed, type FileKind, type BackupKind } from "./core/files.ts";
 import { launchHandoff, createHandoff, listHandoffs, openEditorArgv, revealArgv } from "./core/handoff.ts";
 import { importNativeMemory, remember } from "./core/memory.ts";
-import { getSession, listSessionsForDisplay, readSessionContent, rebuildIndex, visibleHubSessions } from "./core/sessions.ts";
+import { getSession, listSessionsForDisplay, readSessionContent, rebuildIndex, visibleHubSessions, closeSessionIndex } from "./core/sessions.ts";
 import {
   adoptSkills,
   promoteProjectSkill,
@@ -25,10 +25,12 @@ import {
   setSkillTargets,
 } from "./core/skills.ts";
 import { buildSnapshot } from "./core/snapshot.ts";
-import { saveVaultFromMarkdown, setVaultGrants, vaultCatalogFor, renderVaultGetMeta, vaultGet, vaultUiPayload, vaultExecArgv } from "./core/vault.ts";
+import { saveVaultFromMarkdown, setVaultGrants, vaultCatalogFor, renderVaultGetMeta, vaultGet, vaultUiPayload, vaultExecArgv, restoreVaultPrevious } from "./core/vault.ts";
 import { startHubWatch } from "./core/watch.ts";
 import { isAgentId, type AgentId, type ConflictKeep, type Layer } from "./core/types.ts";
+import { adapterCommand } from "./core/adapters.ts";
 import { langFromHeader, localizeResponse, t, type Lang } from "./core/locale.ts";
+import { ERROR_PAIRS } from "../web/errors.js";
 
 const WEB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "web");
 
@@ -55,6 +57,16 @@ async function readBody(req: http.IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+export function apiErrorPayload(err: unknown): { status: number; error: string } {
+  if (err instanceof HubError) return { status: err.status, error: err.message };
+  if (err instanceof SyntaxError) return { status: 400, error: "invalid JSON" };
+  const message = err instanceof Error ? err.message : String(err);
+  for (const [en, zh] of ERROR_PAIRS) {
+    if (message === en || message === zh) return { status: 400, error: message };
+  }
+  return { status: 500, error: "internal error" };
+}
+
 function json(res: http.ServerResponse, status: number, body: unknown, cookie?: string, lang: Lang | null = null): void {
   const data = JSON.stringify(lang ? localizeResponse(body, lang) : body);
   const headers: Record<string, string> = {
@@ -68,6 +80,17 @@ function json(res: http.ServerResponse, status: number, body: unknown, cookie?: 
 
 function send(req: http.IncomingMessage, res: http.ServerResponse, status: number, body: unknown, cookie?: string): void {
   json(res, status, body, cookie, langFromHeader(String(req.headers["accept-language"] ?? "")));
+}
+
+function spawnChecked(argv: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(argv[0]!, argv.slice(1), { stdio: "ignore" });
+    child.on("error", () => reject(new HubError("failed to open local file", 500)));
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new HubError("failed to open local file", 500));
+    });
+  });
 }
 
 function parseCookie(req: http.IncomingMessage): string | null {
@@ -231,6 +254,9 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
       const body = JSON.parse((await readBody(req)) || "{}") as { content?: string; revision?: string };
       if (kind === "skill" && typeof body.revision !== "string") throw new HubError("skill revision required; reload before saving", 428);
       if (kind === "subagent" && typeof body.revision !== "string") throw new HubError("subagent revision required; reload before saving", 428);
+      if (kind !== "skill" && kind !== "subagent" && typeof body.revision !== "string") {
+        throw new HubError("file revision required; reload before saving", 428);
+      }
       const written = await withHubLock(async () => {
         const saved = await transaction(async () => {
           const result = await writeAllowed(kind, body.content ?? "", agent, name, body.revision);
@@ -256,12 +282,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
       return;
     }
     const file = await readAllowed(body.kind, body.agent, body.name);
-    const argv = openEditorArgv(file.path);
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(argv[0]!, argv.slice(1), { stdio: "ignore" });
-      child.on("error", reject);
-      child.on("close", () => resolve());
-    });
+    await spawnChecked(openEditorArgv(file.path));
     send(req, res, 200, { ok: true, path: file.path });
     return;
   }
@@ -377,12 +398,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
       send(req, res, 404, { error: "session not in index" });
       return;
     }
-    const argv = revealArgv(row.source_path);
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(argv[0]!, argv.slice(1), { stdio: "ignore" });
-      child.on("error", reject);
-      child.on("close", () => resolve());
-    });
+    await spawnChecked(revealArgv(row.source_path));
     send(req, res, 200, { ok: true, path: row.source_path });
     return;
   }
@@ -400,6 +416,15 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
     if (typeof body.revision !== "string") throw new HubError("vault revision required; reload before saving", 428);
     const result = await transaction(async () => {
       await saveVaultFromMarkdown(body.markdown ?? "", body.grants, body.secretFields, body.revision);
+      await syncVaultCatalogs();
+      return vaultUiPayload();
+    });
+    send(req, res, 200, result);
+    return;
+  }
+  if (method === "POST" && url.pathname === "/api/vault/restore-previous") {
+    const result = await transaction(async () => {
+      await restoreVaultPrevious();
       await syncVaultCatalogs();
       return vaultUiPayload();
     });
@@ -438,11 +463,11 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
   }
   if (method === "GET" && url.pathname === "/api/vault/exec-plan") {
     const agent = url.searchParams.get("agent") as AgentId | null;
-    const command = url.searchParams.get("command") || agent || "grok";
     if (!agent || !isAgentId(agent)) {
       send(req, res, 400, { error: "agent required" });
       return;
     }
+    const command = url.searchParams.get("command") || adapterCommand(agent);
     const items = await vaultCatalogFor(agent);
     send(req, res, 200, {
       argv: vaultExecArgv(agent, [command]),
@@ -572,8 +597,8 @@ export async function startServer(port: number): Promise<http.Server> {
       await staticFile(url, res);
     })();
     run.catch((err) => {
-      const status = err instanceof HubError ? err.status : err instanceof SyntaxError ? 400 : 500;
-      send(req, res, status, { error: err instanceof Error ? err.message : String(err) });
+      const { status, error } = apiErrorPayload(err);
+      send(req, res, status, { error });
     });
   });
   await new Promise<void>((resolve, reject) => {
@@ -584,6 +609,7 @@ export async function startServer(port: number): Promise<http.Server> {
   const originalClose = server.close.bind(server);
   server.close = ((callback?: (err?: Error) => void) => {
     stopWatch();
+    closeSessionIndex();
     return originalClose(callback);
   }) as typeof server.close;
   const addr = server.address();

@@ -28,7 +28,7 @@ export type BindInput = {
 };
 
 async function assertNotDir(dest: string, label: string): Promise<void> {
-  if (await isDir(dest)) throw new HubError(`${label} 目标是目录，无法注入：${dest}`, 500);
+  if (await isDir(dest)) throw new HubError(`${label} 目标是目录，无法注入：${dest}`, 409);
 }
 
 export async function applyBind(input: BindInput): Promise<{ config: HubConfig; extra: unknown }> {
@@ -38,7 +38,9 @@ export async function applyBind(input: BindInput): Promise<{ config: HubConfig; 
     }
     if (adapter(input.agent).memoryOnly && input.layer !== "memory") throw new HubError(`${input.agent} 本轮仅支持 Memory 自动加载`, 400);
     if (input.layer === "sessions" && input.value === "index" && !supportsSessions(input.agent)) throw new HubError(`${input.agent} 尚无会话扫描器`, 400);
-    if (input.layer === "memory" && input.value === "hub" && !isAgentPresent(input.agent)) throw new HubError(`${input.agent} 未检测到安装，请安装客户端并初始化配置后重试`, 409);
+    if ((input.layer === "memory" || input.layer === "ctx" || input.layer === "vault") && input.value === "hub" && !isAgentPresent(input.agent)) {
+      throw new HubError(`${input.agent} 未检测到安装，请安装客户端并初始化配置后重试`, 409);
+    }
     const prev = (await loadConfig()).bind[input.agent];
     const { agent, layer, value } = input;
 
@@ -90,7 +92,7 @@ export async function applyBind(input: BindInput): Promise<{ config: HubConfig; 
         const dest = adapter(agent).memoryInjectPath(homedir());
         await assertNotDir(dest, "memory");
         if (await exists(dest) && (await fs.lstat(dest)).isDirectory()) {
-          throw new HubError(`memory 注入路径是目录：${dest}`, 500);
+          throw new HubError(`memory 注入路径是目录：${dest}`, 409);
         }
         const written = await injectMemory(agent);
         if (!written) throw new HubError("memory inject failed", 500);

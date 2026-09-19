@@ -7,7 +7,7 @@ import { parse } from "smol-toml";
 import path from "node:path";
 import { agentHome, adapter, homedir } from "./adapters.ts";
 import { hubPaths } from "./config.ts";
-import { exists, readText, removeFile, writeText } from "./fsx.ts";
+import { exists, readText, removeFile, writeText, parseJsonOr, pruneBackupDir } from "./fsx.ts";
 import type { AgentId } from "./types.ts";
 
 type Target = MemoryTarget;
@@ -68,8 +68,14 @@ function withoutBlock(text: string, agent: AgentId): string {
   return text.slice(0, a) + text.slice(tail);
 }
 
+async function loadInjectScopes(): Promise<{ agent: string; cwd: string }[]> {
+  const parsed = parseJsonOr<{ scopes?: { agent?: string; cwd?: string }[] }>(await readText(path.join(hubPaths().memory, "inject-state.json")), {});
+  return (parsed.scopes ?? []).filter((scope): scope is { agent: string; cwd: string } => typeof scope.agent === "string" && typeof scope.cwd === "string");
+}
+
 async function loadManifest(): Promise<Manifest> {
-  return JSON.parse((await readText(manifestPath())) || "{}");
+  const parsed = parseJsonOr<Manifest>(await readText(manifestPath()), {});
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
 }
 
 async function detach(entry: Entry, agent: AgentId): Promise<void> {
@@ -120,7 +126,9 @@ export async function syncNativeMemory(agent: AgentId, body: string | null, cwd?
     if (target.maxBytes && Buffer.byteLength(next) > target.maxBytes) throw new Error(`Hyper AGENTS.md 超过保守加载预算 ${target.maxBytes} UTF-8 字节；请精简或提高原生 context.agents_md_max_tokens，避免整份被忽略`);
     if (!tracked && current !== null) {
       const hash = createHash("sha256").update(target.path).digest("hex").slice(0, 16);
-      await writeText(path.join(hubPaths().backups, "autoload", agent, `${hash}-${Date.now()}.md`), current);
+      const backupDir = path.join(hubPaths().backups, "autoload", agent);
+      await writeText(path.join(backupDir, `${hash}-${Date.now()}.md`), current);
+      await pruneBackupDir(backupDir);
     }
     if (next !== current) await writeText(target.path, next);
     if (tracked?.reference && (tracked.reference.path !== target.reference?.path)) await detachReference(tracked.reference);
@@ -134,7 +142,7 @@ export async function memoryLoadingInfo(agent: AgentId): Promise<{ mode: "global
   if (adapter(agent).manualMemory) {
     const file = adapter(agent).memoryInjectPath(homedir());
     const paths = await exists(file) ? [file] : [];
-    const scopes = JSON.parse((await readText(path.join(hubPaths().memory, "inject-state.json"))) || "{}").scopes || [];
+    const scopes = await loadInjectScopes();
     for (const scope of scopes) if (scope.agent === agent) {
       const exported = path.join(scope.cwd, ".agent-hub", `hub-generated-memory-${agent}.md`);
       if (await exists(exported)) paths.push(exported);
@@ -151,21 +159,23 @@ export async function memoryLoadingInfo(agent: AgentId): Promise<{ mode: "global
     for (const entry of entries) if (await exists(entry.path)) paths.push(entry.path);
   }
   if (agent === "cursor") {
-    const scopes = JSON.parse((await readText(path.join(hubPaths().memory, "inject-state.json"))) || "{}").scopes || [];
+    const scopes = await loadInjectScopes();
     for (const scope of scopes) if (scope.agent === agent) {
       const dest = path.join(scope.cwd, ".cursor/rules/hub-generated-memory.mdc");
       if (await exists(dest)) paths.push(dest);
     }
   }
-  const scopes = JSON.parse((await readText(path.join(hubPaths().memory, "inject-state.json"))) || "{}").scopes || [];
+  const scopes = await loadInjectScopes();
   const unavailable: string[] = [];
   for (const scope of scopes) if (scope.agent === agent && !(await exists(scope.cwd))) unavailable.push(scope.cwd);
-  return {
-    mode: target ? "global" : "workspace", paths,
-    note: (unavailable.length ? `工作区不可用，已跳过投递（可注销）：${unavailable.join("、")}。` : "") + "Own 仅停止 Hub 投递，不隔离客户端读取；共享 AGENTS.md 等入口可能被其他客户端读取。" + (agent === "cline" ? "为避免 Documents/iCloud 同步，Hub 仅向明确登记的本地工作区 .clinerules 投递；请在 Memory 页登记工作区。"
-      : agent === "openclaw" ? "需登记 OpenClaw 实际 agent workspace，加载 MEMORY.md；群聊、子代理及 bootstrap 预算由客户端决定。"
-      : target
+  const parts = [
+    unavailable.length ? `工作区不可用，已跳过投递（可注销）：${unavailable.join("、")}。` : "",
+    "Own 仅停止 Hub 投递，不隔离客户端读取；共享 AGENTS.md 等入口可能被其他客户端读取。",
+    agent === "cline" ? "为避免 Documents/iCloud 同步，Hub 仅向明确登记的本地工作区 .clinerules 投递；请在 Memory 页登记工作区。" : "",
+    agent === "openclaw" ? "需登记 OpenClaw 实际 agent workspace，加载 MEMORY.md；群聊、子代理及 bootstrap 预算由客户端决定。" : "",
+    target
       ? `原生入口：${target.path}。新会话加载；尚不代表运行时已验收。${agent === "workbuddy" ? "需启用本地记忆。" : ""}`
-      : "需在 Memory 页登记工作区，写入该项目的自动加载规则；仅写全局副本不会生效。"),
-  };
+      : "需在 Memory 页登记工作区，写入该项目的自动加载规则；仅写全局副本不会生效。",
+  ].filter(Boolean);
+  return { mode: target ? "global" : "workspace", paths, note: parts.join(" ") };
 }

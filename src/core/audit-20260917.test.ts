@@ -210,7 +210,15 @@ function extractFunction(source: string, name: string): string {
 test("A11 rejected bind restores selection and enables control", async () => {
   const source = await fs.readFile(new URL("../../web/app.js", import.meta.url), "utf8");
   let message = "";
-  const context = vm.createContext(i18nSandbox({ api: async () => { throw new Error("HTTP 409"); }, banner: (s: string) => { message = s; }, confirmBox: async () => "ok" }));
+  const context = vm.createContext(i18nSandbox({
+    api: async () => { throw new Error("HTTP 409"); },
+    banner: (s: string) => { message = s; },
+    confirmBox: async () => "ok",
+    renderAll() {},
+    refreshBanner() {},
+    pillTxt: (value: string) => value,
+    LAYER_META: { memory: { labelKey: "layer.memory" } },
+  }));
   vm.runInContext(await i18nPrelude() + "\n" + extractFunction(source, "onBind"), context);
   const select = { value: "hub", disabled: false };
   await context.onBind({ id: "codex", label: "Codex", bind: { memory: "own" } }, "memory", "hub", select);
@@ -256,7 +264,7 @@ test("frontend targets save includes dirty body and revision, then updates the e
     selectedSkill: "sample", skillBusy: false, skillRevision: "r1", skillDirty: true, snap: {},
     $: (selector: string) => selector === "#skill-editor" ? editor : button,
     api: async (_url: string, options: { body: string }) => { payload = JSON.parse(options.body); return { snapshot: {}, file: { content: "MERGED YAML AND BODY", revision: "r2" } }; },
-    renderSkills() {}, renderSkillTargets() {}, banner() {},
+    renderSkills() {}, renderSkillTargets() {}, banner() {}, notice() {},
   }));
   vm.runInContext(await i18nPrelude() + "\n" + extractFunction(source, "saveSkillTargets"), context);
   await context.saveSkillTargets(["grok"]);
@@ -294,7 +302,7 @@ test("frontend AGENTS save uses loaded workspace and new project uses create-onl
     $: element, $$: () => [], window: { addEventListener() {} },
     loadedAgentsCwd: "/loaded/A", agentsRevision: "r1", selectedMemory: "global",
     memoryBusy: false, memoryPending: false, memoryLoadEpoch: 0, updateMemoryControls() {},
-    filterAgentCards() {}, banner() {}, refresh: async () => {}, openMemory: async () => {}, prompt: () => "new-project",
+    filterAgentCards() {}, banner() {}, notice() {}, refresh: async () => {}, openMemory: async () => {}, prompt: () => "new-project",
     api: async (url: string, options: { method: string; body: string }) => {
       calls.push({ url, method: options.method, body: JSON.parse(options.body) });
       return { revision: "r2", content: "DRAFT FROM A" };

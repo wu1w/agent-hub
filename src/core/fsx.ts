@@ -2,19 +2,69 @@ import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { HubError } from "./errors.ts";
 import { checkpoint } from "./transaction.ts";
 
 export function assertSafeName(name: string, label = "name"): string {
   if (!name || name !== path.basename(name) || name === "." || name === "..") {
-    throw new Error(`invalid ${label}`);
+    throw new HubError(`invalid ${label}`, 400);
   }
-  if (name.includes("\0")) throw new Error(`invalid ${label}`);
+  if (name.includes("\0")) throw new HubError(`invalid ${label}`, 400);
   return name;
 }
 
 export function assertAbsolutePath(target: string, label = "path"): string {
   if (!path.isAbsolute(target)) throw new Error(`${label} must be absolute`);
   return path.resolve(target);
+}
+
+/** Parse JSON from disk; corrupt or empty files degrade to `fallback` instead of taking down the hub. */
+export function parseJsonOr<T>(raw: string | null | undefined, fallback: T): T {
+  if (!raw?.trim()) return fallback;
+  try {
+    const value = JSON.parse(raw) as unknown;
+    return value == null ? fallback : (value as T);
+  } catch {
+    return fallback;
+  }
+}
+
+/** Keep the newest timestamp-prefixed files; manifests like current.json stay. */
+export const MAX_BACKUP_FILES = 20;
+
+export async function pruneBackupDir(dir: string, keep = MAX_BACKUP_FILES): Promise<void> {
+  let names: string[] = [];
+  try {
+    names = await fs.readdir(dir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  const keepAlways = new Set(["current.json"]);
+  const files = names
+    .filter((name) => !keepAlways.has(name) && !name.endsWith(".meta.json") && !name.includes(".tmp-"))
+    .sort();
+  const drop = files.slice(0, Math.max(0, files.length - keep));
+  for (const name of drop) {
+    await fs.rm(path.join(dir, name), { recursive: true, force: true });
+    await fs.rm(path.join(dir, `${name}.meta.json`), { force: true });
+  }
+}
+
+/** Keep the newest files that share a filename prefix (e.g. vault.bin.broken-). */
+export async function prunePrefixedFiles(dir: string, prefix: string, keep = MAX_BACKUP_FILES): Promise<void> {
+  let names: string[] = [];
+  try {
+    names = await fs.readdir(dir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  const files = names.filter((name) => name.startsWith(prefix)).sort();
+  const drop = files.slice(0, Math.max(0, files.length - keep));
+  for (const name of drop) {
+    await fs.rm(path.join(dir, name), { force: true });
+  }
 }
 
 export async function exists(target: string): Promise<boolean> {

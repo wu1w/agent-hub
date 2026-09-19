@@ -68,7 +68,8 @@ test("AH01: HTTP and core session content redact messages and escaped raw text b
   const result = await api("/api/session/content?agent=codex&id=redaction");
   assert.equal(result.status, 200); assert.equal(result.data.messages.length, 2);
   assert.ok(!JSON.stringify(result.data).includes("SYNTHETIC_SECRET"));
-  assert.equal(result.data.messages[0].text, "***"); assert.match(result.data.raw, /\*\*\*/);
+  assert.equal(result.data.messages[0].text, "***");
+  assert.equal(result.data.raw, undefined);
   assert.ok(!JSON.stringify(await readSessionContent("codex", "redaction")).includes("SYNTHETIC_SECRET"));
   assert.deepEqual(await fs.readFile(file), originalBytes);
   process.env.AGENT_HUB_VAULT_KEY = "c3".repeat(32);

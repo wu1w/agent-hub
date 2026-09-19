@@ -265,7 +265,7 @@ async function scanCursor(home: string, now: number): Promise<SessionRecord[]> {
         }
         continue;
       }
-      const rec = await cursorRecord(file, sid, cwd, now);
+      const rec = await cursorRecord(file, sid.replace(/\.jsonl$/i, ""), cwd, now);
       if (rec) out.push(rec);
     }
   }
@@ -674,10 +674,13 @@ function normalizeRole(value: unknown): SessionMessage["role"] {
   return "other";
 }
 
+const SKIP_SESSION_TYPES = new Set(["session_meta", "event_msg", "turn_aborted", "turn_context"]);
+
 function extractMessages(text: string, material: SecretMaterial): SessionMessage[] {
   const out: SessionMessage[] = [];
   for (const item of jsonlRecords(text, 10000)) {
     const rec = asRecord(item);
+    if (rec?.type && SKIP_SESSION_TYPES.has(String(rec.type))) continue;
     const msg = asRecord(rec?.payload) ?? asRecord(rec?.message) ?? rec;
     const role = normalizeRole(msg?.role ?? rec?.role ?? msg?.type);
     let content = contentText(msg?.content ?? msg?.text ?? msg?.message);
@@ -704,7 +707,8 @@ export async function readSessionContent(agent: AgentId, sessionId: string): Pro
   const { text, size, truncated } = await readTail(file);
   const messages = extractMessages(text, material);
   const result: SessionContent = { path: file, size, truncated, messages };
-  if (messages.length < 3) {
+  const spoken = messages.some((msg) => msg.role === "user" || msg.role === "assistant");
+  if (!spoken) {
     const safeRaw = redactOrOmit(text, material);
     result.raw = safeRaw.length > SESSION_RAW_MAX ? safeRaw.slice(-SESSION_RAW_MAX) : safeRaw;
   }

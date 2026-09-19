@@ -6,7 +6,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { promisify } from "node:util";
 import { AGENT_IDS, isAgentId, type AgentId, type VaultCatalogItem, type VaultEntry, type VaultField, type VaultStore } from "./types.ts";
 import { ensureHub, hubPaths, loadConfig } from "./config.ts";
-import { readBinary, writeBinary } from "./fsx.ts";
+import path from "node:path";
+import { prunePrefixedFiles, readBinary, writeBinary } from "./fsx.ts";
 
 const execFile = promisify(execFileCb);
 const MAGIC = Buffer.from("AHV1");
@@ -35,6 +36,12 @@ export function noteOf(entry: VaultEntry): string {
 
 export function slugEntryId(raw: string): string {
   return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+/** Serialize a field so continuation lines cannot be parsed as new `name:` keys. */
+export function renderVaultField(name: string, value: string): string {
+  const parts = value.split("\n");
+  return [`${name}: ${parts[0] ?? ""}`, ...parts.slice(1).map((line) => `  ${line}`)].join("\n");
 }
 
 export function parseVaultMarkdown(markdown: string, previous?: VaultStore): VaultStore {
@@ -75,7 +82,14 @@ export function parseVaultMarkdown(markdown: string, previous?: VaultStore): Vau
       continue;
     }
     if (!current) continue;
-    const field = line.match(/^([^:：]+)[:：]\s*(.*)$/);
+    // Continuation lines are indented two spaces so a "Name: value" note stays
+    // in the current field instead of opening a phantom one.
+    if (line.startsWith("  ")) {
+      const last = current.fields[current.fields.length - 1];
+      if (last) last.value = last.value ? `${last.value}\n${line.slice(2)}` : line.slice(2);
+      continue;
+    }
+    const field = line.match(/^([^ \t#:：][^:：]*)[:：]\s*(.*)$/);
     if (field) {
       const name = field[1]!.trim();
       const value = field[2] ?? "";
@@ -108,7 +122,7 @@ export function renderVaultMarkdown(store: VaultStore): string {
   }
   const blocks = store.entries.map((entry) => {
     const rows = entry.fields.length
-      ? entry.fields.map((field) => `${field.name}: ${field.value}`).join("\n")
+      ? entry.fields.map((field) => renderVaultField(field.name, field.value)).join("\n")
       : "说明: ";
     return `## ${entry.id}\n${rows}`;
   });
@@ -199,18 +213,21 @@ export async function loadMasterKey(): Promise<Buffer> {
   return Buffer.from(hex, "hex");
 }
 
-export async function loadVault(): Promise<VaultStore> {
-  await ensureHub();
-  const blob = await readBinary(hubPaths().vaultBin);
-  if (!blob) return emptyStore();
-  const key = await loadMasterKey();
-  const json = decrypt(blob, key).toString("utf8");
+function parseStore(json: string): VaultStore {
   const parsed = JSON.parse(json) as VaultStore;
   if (parsed.version !== 1 || !Array.isArray(parsed.entries) || parsed.entries.some((e) =>
     typeof e.id !== "string" || !Array.isArray(e.agents) || e.agents.some((a) => !isAgentId(a)) ||
     !Array.isArray(e.fields) || e.fields.some((f) => typeof f.name !== "string" || typeof f.value !== "string" || typeof f.secret !== "boolean")
   )) throw new Error("invalid vault store; refusing to overwrite");
   return parsed;
+}
+
+export async function loadVault(): Promise<VaultStore> {
+  await ensureHub();
+  const blob = await readBinary(hubPaths().vaultBin);
+  if (!blob) return emptyStore();
+  const key = await loadMasterKey();
+  return parseStore(decrypt(blob, key).toString("utf8"));
 }
 
 export async function saveVault(store: VaultStore): Promise<string> {
@@ -223,6 +240,31 @@ export async function saveVault(store: VaultStore): Promise<string> {
     if (previous) await writeBinary(`${target}.previous`, previous, 0o600);
     await writeBinary(target, blob, 0o600);
     return target;
+  });
+}
+
+/** Replace vault.bin with the last pre-save ciphertext. The discarded current file is kept as vault.bin.broken-*. */
+export async function restoreVaultPrevious(): Promise<VaultStore> {
+  return withHubLock(async () => {
+    await ensureHub();
+    const target = hubPaths().vaultBin;
+    const previous = await readBinary(`${target}.previous`);
+    if (!previous) throw new HubError("没有可用的上一份保险库备份", 404);
+    const key = await loadMasterKey();
+    let store: VaultStore;
+    try {
+      store = parseStore(decrypt(previous, key).toString("utf8"));
+    } catch {
+      throw new HubError("上一份保险库备份无法解密", 409);
+    }
+    const current = await readBinary(target);
+    if (current) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await writeBinary(`${target}.broken-${stamp}`, current, 0o600);
+      await prunePrefixedFiles(path.dirname(target), "vault.bin.broken-");
+    }
+    await writeBinary(target, previous, 0o600);
+    return store;
   });
 }
 

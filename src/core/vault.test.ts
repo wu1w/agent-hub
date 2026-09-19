@@ -122,3 +122,23 @@ test("empty vault markdown has no example entry", () => {
   assert.equal(empty.includes("## example"), false);
   assert.match(empty, /^# Vault\n/);
 });
+
+test("multiline vault fields round-trip colons inside indented values", () => {
+  const markdown = `# Vault
+
+## demo
+说明: first
+  extra: still a note
+密钥: sk-live-secret-value
+`;
+  const store = parseVaultMarkdown(markdown);
+  const entry = store.entries[0]!;
+  assert.equal(entry.fields.find((field) => field.name === "说明")?.value, "first\nextra: still a note");
+  assert.equal(entry.fields.find((field) => field.name === "密钥")?.value, "sk-live-secret-value");
+  assert.equal(entry.fields.some((field) => field.name === "extra"), false);
+  const rendered = renderVaultMarkdown(store);
+  assert.match(rendered, /^说明: first$/m);
+  assert.match(rendered, /^  extra: still a note$/m);
+  const again = parseVaultMarkdown(rendered);
+  assert.equal(again.entries[0]!.fields.find((field) => field.name === "说明")?.value, "first\nextra: still a note");
+});

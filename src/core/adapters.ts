@@ -193,7 +193,6 @@ export function homedir(): string {
 
 /** Read-only installation detection; a missing profile alone is not conclusive. */
 export function agentInstallationEvidence(id: AgentId, home = homedir()) {
-  const ad = adapter(id);
   const runtimeMarkers: string[] = ({
     claude: ["settings.json", ".credentials.json", "projects"], hermes: ["config.yaml", "auth.json", "sessions"],
     grok: ["config.json", "sessions"], cursor: ["projects", "extensions"],
@@ -204,7 +203,7 @@ export function agentInstallationEvidence(id: AgentId, home = homedir()) {
   } as Partial<Record<AgentId, string[]>>)[id] ?? ["config.json", "config.yaml", "config.toml", "sessions"];
 
   const profileEvidence = runtimeMarkers.some(name => fsSync.existsSync(path.join(agentHome(id, home), name)));
-  const command = ad.command || ({ grok: "grok", cursor: "cursor", codex: "codex", hyper: "grok-hyper", claude: "claude", hermes: "hermes" } as Partial<Record<AgentId, string>>)[id];
+  const command = adapterCommand(id);
   const executable = Boolean(command && (process.env.PATH || "").split(path.delimiter).some(dir => {
     try { const file = path.join(dir, command); fsSync.accessSync(file, fsSync.constants.X_OK); return fsSync.statSync(file).isFile(); } catch { return false; }
   }));
@@ -224,6 +223,21 @@ export function agentInstallationEvidence(id: AgentId, home = homedir()) {
 export function isAgentPresent(id: AgentId, home = homedir()): boolean {
   const evidence = agentInstallationEvidence(id, home);
   return evidence.profileEvidence || evidence.executable || evidence.extensionEvidence;
+}
+
+const COMMAND_BY_ID: Partial<Record<AgentId, string>> = {
+  grok: "grok",
+  cursor: "cursor",
+  codex: "codex",
+  hyper: "grok-hyper",
+  claude: "claude",
+  hermes: "hermes",
+  workbuddy: "workbuddy",
+};
+
+/** CLI/binary name used for vault exec, PATH detection, and copy-paste hints. */
+export function adapterCommand(id: AgentId): string {
+  return adapter(id).command || COMMAND_BY_ID[id] || id;
 }
 
 export function supportsSessions(id: AgentId): boolean {

@@ -1,6 +1,7 @@
 import { checkpoint, transaction } from "./transaction.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { HubError } from "./errors.ts";
 import { ADAPTERS, adapter, homedir } from "./adapters.ts";
 import { ensureHub, hubPaths, loadConfig, resolvedSkillDir } from "./config.ts";
 import { parseHubTargets, repairLegacyHubWildcard, setHubTargets, skillAllowedFor } from "./frontmatter.ts";
@@ -43,7 +44,7 @@ export type MountedSkill = {
 
 // Hub identities are paths relative to the authoritative skills directory.
 export function assertSkillName(name: string): string {
-  if (!name || name.includes("\\") || name.split("/").some(part => !part || part === "." || part === ".." || /[\x00-\x1f]/.test(part))) throw new Error("invalid skill name");
+  if (!name || name.includes("\\") || name.split("/").some(part => !part || part === "." || part === ".." || /[\x00-\x1f]/.test(part))) throw new HubError("invalid skill name", 400);
   for (const part of name.split("/")) assertSafeName(part, "skill");
   return name;
 }

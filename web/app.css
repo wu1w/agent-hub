@@ -180,7 +180,9 @@ ul.warn-list li:last-child { border-bottom: 0; }
 }
 .skill-row {
   display: grid; grid-template-columns: 8px 1fr auto; gap: 2px 10px; align-items: center;
-  padding: 9px 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+  width: 100%; text-align: left; font: inherit; color: inherit;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid transparent; background: transparent;
 }
 .skill-row:hover { background: #fafbfd; }
 .skill-row.sel { background: var(--acc-soft); border-color: #d3dcff; }
@@ -230,7 +232,7 @@ details.d[open] summary::before { content: "▾ "; }
 details.d summary .c { font-family: var(--mono); font-weight: 500; margin-left: 4px; }
 
 ul.plain { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; }
-ul.plain li { padding: 4px 2px; font-family: var(--mono); color: var(--mute); word-break: break-all; }
+ul.plain li { padding: 4px 2px; font-family: var(--mono); color: var(--mute); overflow-wrap: break-word; word-break: normal; }
 .conflict-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .conflict-row .btn { font-family: var(--sans); }
 
@@ -324,6 +326,8 @@ table.data .summary { display: block; color: var(--faint); font-size: 11px; marg
 table.sessions-table { table-layout: fixed; }
 table.sessions-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 table.sessions-table td .summary { overflow: hidden; text-overflow: ellipsis; }
+.session-row { cursor: pointer; }
+.session-row:focus-visible, .skill-row:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
 .empty { padding: 40px 20px; text-align: center; color: var(--faint); font-size: 12.5px; }
 
 /* session content tabs + read-only message flow */

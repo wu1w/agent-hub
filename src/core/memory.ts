@@ -8,7 +8,7 @@ import { exists, mtimeMs, readText, writeText } from "./fsx.ts";
 import type { AgentId, HubConfig, MemoryProject } from "./types.ts";
 
 const PROJECT_ID = /^[A-Za-z0-9._-]+$/;
-const INJECT_CAP = 24_000;
+export const INJECT_CAP = 24_000;
 
 export function assertProjectId(id: string): string {
   if (typeof id !== "string" || !PROJECT_ID.test(id) || id === "." || id === "..") throw new HubError(`invalid project id: ${id}`, 400);
@@ -115,7 +115,7 @@ function clip(text: string, max: number): string {
 }
 
 export async function composeInject(preferProject?: string): Promise<string> {
-  const global = (await readGlobalMemory()).trim() || "（还没有全局记忆）";
+  const global = clip((await readGlobalMemory()).trim() || "（还没有全局记忆）", INJECT_CAP);
   if (!preferProject) return `${global}\n`;
   assertProjectId(preferProject);
   if (!await projectExists(preferProject)) throw new HubError("project memory not found", 404);

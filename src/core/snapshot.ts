@@ -4,7 +4,7 @@ import { diskEpoch } from "./watch.ts";
 import { withHubLock } from "./transaction.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { supportsSessions, supportsHandoff, supportsVault, agentInstallationEvidence, adapter, homedir, isAgentPresent } from "./adapters.ts";
+import { supportsSessions, supportsHandoff, supportsVault, agentInstallationEvidence, adapter, adapterCommand, homedir, isAgentPresent } from "./adapters.ts";
 import { syncPathWarning, ensureHub, hubPaths, loadConfig, resolvedSkillDir } from "./config.ts";
 import { readText } from "./fsx.ts";
 import { memorySnapshot, scanNativeMemory } from "./memory.ts";
@@ -63,6 +63,7 @@ export async function agentSnapshots(config: HubConfig): Promise<AgentSnapshot[]
       memoryLoading: await memoryLoadingInfo(id),
       vaultCatalogPath: ad.vaultCatalogPath(home),
       sessionRoot: ad.sessionRoot ? ad.sessionRoot(home) : null,
+      command: adapterCommand(id),
       subagents: await listSubagents(ad.id),
     });
   }
@@ -83,7 +84,7 @@ export type Snapshot = {
   userMd: { path: string; content: string };
   memory: { globalPath: string; global: string; projects: MemoryProject[] };
   nativeMemory: { agent: string; name: string; path: string }[];
-  sessions: { count: number; indexedAt: number | null };
+  sessions: { count: number; indexedAt: number | null; all: number };
   vault: VaultSummary;
   conflicts: { name: string; agent: string; path: string }[];
   broken: { name: string; agent: string; path: string }[];
@@ -132,7 +133,11 @@ export async function buildSnapshot(): Promise<Snapshot> {
       userMd: { path: p.userMd, content: (await readText(p.userMd)) ?? "" },
       memory: await memorySnapshot(),
       nativeMemory: await scanNativeMemory(config),
-      sessions: sessionStats(config.agents.enabled.filter((id) => config.bind[id].sessions === "index")),
+      sessions: (() => {
+        const enabled = config.agents.enabled;
+        const catalog = sessionStats(enabled.filter((id) => config.bind[id].sessions === "index"));
+        return { ...catalog, all: sessionStats(enabled).count };
+      })(),
       vault: await vaultSummary(),
       conflicts, broken,
     };

@@ -33,6 +33,7 @@ const CLI: Record<Lang, Record<string, string>> = {
   hub vault get <id> --for <agent> [--exec -- <cmd>]
   hub vault grant <id> --for a,b
   hub vault revoke <id> --for a
+  hub vault restore-previous  用保存前的密文覆盖 vault.bin
   hub project-skills --cwd <abs>
   hub promote --cwd <abs> <name>
   hub subagents [--agent grok]
@@ -49,6 +50,7 @@ const CLI: Record<Lang, Record<string, string>> = {
     "sub.empty": "{agent} 没有子代理文件",
     "vault.empty": "保险库是空的。到 Hub → Vault 用 Markdown 写条目。",
     "vault.nobody": "无人授权",
+    "vault.restored": "已用上一份保险库备份覆盖 vault.bin",
     "web.listen": "Agent Hub  {url}",
     "web.token": "本机会话口令（只粘贴到登录框，不要放进 URL）：",
     "web.token_file": "非交互终端，不打印口令；本机会话口令见 {path}（0600，仅本用户可读）。",
@@ -81,6 +83,7 @@ const CLI: Record<Lang, Record<string, string>> = {
   hub vault get <id> --for <agent> [--exec -- <cmd>]
   hub vault grant <id> --for a,b
   hub vault revoke <id> --for a
+  hub vault restore-previous  Replace vault.bin with the last pre-save ciphertext
   hub project-skills --cwd <abs>
   hub promote --cwd <abs> <name>
   hub subagents [--agent grok]
@@ -97,6 +100,7 @@ const CLI: Record<Lang, Record<string, string>> = {
     "sub.empty": "{agent} has no subagent files",
     "vault.empty": "Vault is empty. Add ## id entries in Hub → Vault.",
     "vault.nobody": "no grants",
+    "vault.restored": "Restored vault.bin from the previous ciphertext",
     "web.listen": "Agent Hub  {url}",
     "web.token": "Local session passphrase (paste into the sign-in box; do not put it in the URL):",
     "web.token_file": "Non-interactive terminal: passphrase not printed; find the local session passphrase in {path} (0600, owner-only).",
@@ -176,5 +180,6 @@ export function localizeResponse<T>(body: T, lang: Lang | null): T {
     out.memoryLoading = loading;
   }
   if (Array.isArray(out.agents)) out.agents = out.agents.map((item) => localizeResponse(item, lang));
+  if (Array.isArray(out.catalog)) out.catalog = out.catalog.map((item) => localizeResponse(item, lang));
   return out as T;
 }

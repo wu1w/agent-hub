@@ -42,6 +42,7 @@ test("Cline uses an explicit workspace and never creates a Documents projection"
  assert.equal(await nativeMemoryTarget("cline"),null);
  await applyBind({agent:"cline",layer:"memory",value:"hub"});
  assert.equal(await readText(path.join(agentHome("cline"),"hub/memory.md")),null);
+ assert.equal(await readText(adapter("cline").memoryInjectPath(home)),null);
  await selectMemoryProject("cline",undefined,cwd,true);
  assert.match((await readText(path.join(cwd,".clinerules/hub-memory.md")))!, /Hub Memory/);
  const cloud=path.join(home,"Documents/project"); await fs.mkdir(cloud,{recursive:true});

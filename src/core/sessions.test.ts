@@ -49,6 +49,14 @@ before(async () => {
       message: { content: [{ type: "text", text: "<user_query>\nImplement steward only\n</user_query>" }] },
     })}\n`,
   );
+  const flatSid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  await fs.writeFile(
+    path.join(home, ".cursor", "projects", "world", "agent-transcripts", `${flatSid}.jsonl`),
+    `${JSON.stringify({
+      role: "user",
+      message: { content: [{ type: "text", text: "<user_query>\nFlat jsonl session\n</user_query>" }] },
+    })}\n`,
+  );
 
   const codexSid = "01a0a442-0e4d-7261-bf30-856695a12308";
   const codexDir = path.join(home, ".codex", "sessions", "2026", "09", "15");
@@ -95,7 +103,7 @@ after(async () => {
 test("index scans grok cursor codex hyper without copying jsonl", async () => {
   const report = await rebuildIndex();
   assert.equal(report.byAgent.grok, 1);
-  assert.equal(report.byAgent.cursor, 1);
+  assert.equal(report.byAgent.cursor, 2);
   assert.equal(report.byAgent.codex, 1);
   assert.equal(report.byAgent.hyper, 1);
   const grok = getSession("grok", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
@@ -104,6 +112,9 @@ test("index scans grok cursor codex hyper without copying jsonl", async () => {
   assert.match(grok?.summary ?? "", /legacy tools/);
   const cursor = getSession("cursor", "11111111-2222-4333-8444-555555555555");
   assert.match(cursor?.title ?? "", /Implement steward only/);
+  const flat = getSession("cursor", "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
+  assert.match(flat?.title ?? "", /Flat jsonl session/);
+  assert.equal(getSession("cursor", "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl"), null);
   const codex = getSession("codex", "01a0a442-0e4d-7261-bf30-856695a12308");
   assert.equal(codex?.cwd, "/Users/demo/medical-harness");
   assert.match(codex?.title ?? "", /Fix the audit report/);
@@ -144,6 +155,34 @@ test("handoff writes markdown and grok_resume plan", async () => {
   assert.ok(handoffs.some((item) => item.from === "grok" && item.to === "grok"));
   const found = listSessions({ q: "legacy tools" });
   assert.equal(found.length, 1);
+});
+
+test("handoff stamp strips path punctuation from the session id", async () => {
+  const group = path.join(home, ".grok", "sessions", encodeURIComponent("/tmp/evil"));
+  const sidDir = path.join(group, "evil-sid");
+  await fs.mkdir(sidDir, { recursive: true });
+  await fs.writeFile(
+    path.join(sidDir, "summary.json"),
+    JSON.stringify({
+      info: { id: "../evil;rm", cwd: "/tmp/evil" },
+      generated_title: "evil session",
+      session_summary: "should not appear in the filename",
+      updated_at: "2026-09-19T00:00:00.000Z",
+    }),
+  );
+  await rebuildIndex();
+  const result = await createHandoff({
+    from: "grok",
+    to: "grok",
+    sessionId: "../evil;rm",
+  });
+  assert.match(result.record.id, /evilrm/);
+  assert.doesNotMatch(result.record.id, /\.\.|[/\\;]/);
+  assert.equal(path.dirname(result.record.path).endsWith(`${path.sep}handoff`), true);
+  assert.equal(path.basename(result.record.path), `${result.record.id}.md`);
+  await fs.rm(group, { recursive: true, force: true });
+  await rebuildIndex();
+  assert.equal(getSession("grok", "../evil;rm"), null);
 });
 
 test("sessions=own are hidden from hub list and block handoff without forceOwn", async () => {

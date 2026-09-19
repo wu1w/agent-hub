@@ -14,8 +14,20 @@ const helpers = fn("allowsCtxHub") + "\n" + fn("ctxHubBlockReason");
 test("Ctx UI rejects unsupported projection before confirmation or API and preserves allowlist", async () => {
   let calls = 0, confirmations = 0, message = "";
   const snap = { config: { layers: { ctx: { global_targets: ["hyper"] } } } };
-  const context = vm.createContext(i18nSandbox({ snap, banner: (text: string) => { message = text; }, api: async () => { calls++; return { snapshot: snap }; }, confirmBox: async () => { confirmations++; return "ok"; }, renderSkills() {}, renderMemory() {}, renderAgents() {} }));
-  vm.runInContext(prelude + helpers + "\n" + fn("onBind"), context);
+  const context = vm.createContext(i18nSandbox({
+    snap,
+    banner: (text: string) => { message = text; },
+    api: async () => { calls++; return { snapshot: snap }; },
+    confirmBox: async () => { confirmations++; return "ok"; },
+    renderSkills() {},
+    renderMemory() {},
+    renderAgents() {},
+    renderAll() {},
+    refreshBanner() {},
+    pillTxt: (value: string) => value,
+    LAYER_META: { ctx: { labelKey: "layer.ctx" }, memory: { labelKey: "layer.memory" }, skills: { labelKey: "layer.skills" }, sessions: { labelKey: "layer.sessions" }, vault: { labelKey: "layer.vault" } },
+  }));
+  vm.runInContext(prelude + "notice = function(key, params) { banner(t(key, params)); };\n" + helpers + "\n" + fn("onBind"), context);
   for (const [id, projection, reason] of [["grok", null, "无 USER.md 投影路径"], ["cursor", "/test/rule", "未列入 Ctx 可投影名单"]]) {
     const sel = { value: "hub", disabled: false };
     await context.onBind({ id, label: id, userMdProjection: projection, bind: { ctx: "own" } }, "ctx", "hub", sel);
@@ -38,7 +50,7 @@ test("Ctx render disables only disallowed Hub options with an actionable reason"
   }
   const root = new Node();
   const agents = [["grok", null], ["cursor", "/test/rule"], ["hyper", "/test/USER.md"]].map(([id, userMdProjection]) => ({id,label:id,userMdProjection,present:true,bind:{ctx:"own",memory:"own",sessions:"own",vault:"off"}}));
-  const context = vm.createContext(i18nSandbox({ snap: { agents, config: { layers: { ctx: { global_targets: ["hyper"] } } }, vault: {entries:[]} }, LAYER_META: {ctx:{label:"Ctx",labelKey:"layer.ctx",options:[["hub","opt.hub"],["own","opt.own"]]}}, document:{createElement:()=>new Node()}, $:()=>root, esc:(s: string)=>s, apiErrorText:(s: string)=>s, loadIdentity:async()=>{}, wirePreview(){}, renderSubagents(){}, filterAgentCards(){}, renderCatalog(){}, renderSnapshotWarnings(){}, onBind(){}, banner(){} }));
+  const context = vm.createContext(i18nSandbox({ snap: { agents, config: { layers: { ctx: { global_targets: ["hyper"] } } }, vault: {entries:[]} }, LAYER_META: {ctx:{label:"Ctx",labelKey:"layer.ctx",options:[["hub","opt.hub"],["own","opt.own"]]}}, document:{createElement:()=>new Node()}, $:()=>root, esc:(s: string)=>s, apiErrorText:(s: string)=>s, loadIdentity:async()=>{}, wirePreview(){}, renderSubagents(){}, filterAgentCards(){}, renderCatalog(){}, renderSnapshotWarnings(){}, onBind(){}, banner(){}, notice(){} }));
   vm.runInContext(prelude + helpers + "\n" + fn("renderAgents"), context); context.renderAgents();
   root.children.forEach((card, i) => {
     const select = card.querySelector(".bind").children[1]!;

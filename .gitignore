@@ -23,3 +23,7 @@ target/
 .venv/
 __pycache__/
 *.pyc
+scripts/crap-report.json
+.stryker-tmp/
+reports/
+stryker.log

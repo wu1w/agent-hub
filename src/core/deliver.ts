@@ -6,7 +6,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { adapter, homedir, isAgentPresent } from "./adapters.ts";
 import { hubPaths, loadConfig } from "./config.ts";
-import { exists, isDir, readText, removeFile, writeText } from "./fsx.ts";
+import { exists, isDir, readText, removeFile, writeText, parseJsonOr, pruneBackupDir } from "./fsx.ts";
 import { assertProjectId, composeInject, projectExists } from "./memory.ts";
 import { renderCatalogMarkdown, VAULT_MARK, vaultCatalogFor } from "./vault.ts";
 import { AGENT_IDS, isAgentId, type AgentId, type HubConfig, type Layer } from "./types.ts";
@@ -29,6 +29,7 @@ async function backupUserFile(kind: "memory" | "ctx" | "vault", agent: AgentId, 
   if (current !== null) {
     backup = `${stamp()}-${process.hrtime.bigint()}${path.extname(target) || ".md"}`;
     await writeText(path.join(dir, backup), current);
+    await pruneBackupDir(dir);
   }
   // Record absence too: a later Own transition must not resurrect a previous cycle's file.
   await writeText(path.join(dir, "current.json"), JSON.stringify({ backup }));
@@ -68,6 +69,9 @@ export async function injectMemory(agent: AgentId, preferProject?: string, cwd?:
     if (preferProject && !cwd) throw new Error("project memory requires a workspace");
     const dest = cwd ? workspaceMemoryPath(agent, cwd) : ad.memoryInjectPath(home);
     if (await isDir(dest)) throw new Error(`memory 注入路径是目录：${dest}`);
+    // Workspace-only loaders (Cline, Hyper, OpenClaw) have no global consumer.
+    // Do not write a cache file nobody reads; bind still succeeds so scopes can attach later.
+    if (!cwd && !ad.manualMemory && !(await nativeMemoryTarget(agent))) return dest;
     if (!cwd) await backupUserFile("memory", agent, dest);
     else if (await exists(dest) && !isHubGenerated(await readText(dest))) throw new Error("workspace memory path contains a user file");
     const body = await composeInject(preferProject);
@@ -104,8 +108,7 @@ export function workspaceMemoryPath(agent: AgentId, cwd: string): string {
 
 async function loadMemoryInjectState(): Promise<MemoryInjectState> {
   const raw = await readText(path.join(hubPaths().memory, "inject-state.json"));
-  if (!raw) return { scopes: [] };
-  const parsed = JSON.parse(raw) as MemoryInjectState;
+  const parsed = parseJsonOr<Partial<MemoryInjectState>>(raw, { scopes: [] });
   // Legacy per-agent project choices have no workspace identity and are not replayed globally.
   return { scopes: (parsed.scopes ?? []).filter((s) => isAgentId(s.agent) && path.isAbsolute(s.cwd)) };
 }
