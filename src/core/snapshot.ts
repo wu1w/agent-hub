@@ -103,10 +103,10 @@ export async function buildSnapshot(): Promise<Snapshot> {
       const mounted = await scanUserSkills(config);
       const hubNames = new Set((await listHubSkills()).map(item => item.name));
       unadopted = mounted.filter(item => !hubNames.has(item.name)).map(item => ({ agent: item.agent, name: item.name, path: item.path }));
-      skills = await skillRecords(config);
+      skills = await skillRecords(config, mounted);
       vendorSkills = await scanVendorSkills(config);
-      conflicts = await conflictRows(config);
-      broken = await brokenRows(config);
+      conflicts = await conflictRows(config, skills, mounted);
+      broken = await brokenRows(config, skills);
     } catch (error) {
       skillsStatus = "unavailable";
       skills = []; vendorSkills = []; unadopted = []; conflicts = []; broken = [];

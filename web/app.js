@@ -126,7 +126,7 @@ function banner(text) {
 }
 
 function bannerParams(key, params) {
-  if (key !== "banner.bound" || !params) return params;
+  if ((key !== "banner.bound" && key !== "banner.binding") || !params) return params;
   const layerKey = LAYER_META[params.layer]?.labelKey ?? `layer.${params.layer}`;
   return { label: params.label, layer: t(layerKey), value: t(`pill.${params.value}`) };
 }
@@ -1657,7 +1657,10 @@ async function onBind(agent, layer, value, sel) {
     }
   }
   sel.disabled = true;
+  sel.setAttribute?.("aria-busy", "true");
+  if (typeof document !== "undefined" && document.body) document.body.dataset.busy = "1";
   try {
+  notice("banner.binding", { label: agent.label, layer, value });
   const result = await api("/api/bind", {
     method: "POST",
     body: JSON.stringify({ agent: agent.id, layer, value, skillsMode }),
@@ -1670,7 +1673,11 @@ async function onBind(agent, layer, value, sel) {
   } catch (error) {
     sel.value = prev;
     banner(error.message);
-  } finally { sel.disabled = false; }
+  } finally {
+    sel.disabled = false;
+    sel.removeAttribute?.("aria-busy");
+    if (typeof document !== "undefined" && document.body) delete document.body.dataset.busy;
+  }
 }
 
 /* ================= chrome wiring ================= */

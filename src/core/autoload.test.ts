@@ -127,6 +127,21 @@ test("disabling an adapter retracts native blocks; custom profile roots are supp
   assert.equal(await readText(dest), null);
 });
 
+test("Hermes memory keeps a section mark inside the Hub block as one entry", async () => {
+  await writeGlobalMemory("before\n§\nafter");
+  await applyBind({ agent: "hermes", layer: "memory", value: "hub" });
+  const dest = (await nativeMemoryTarget("hermes"))!.path;
+  const text = (await readText(dest))!;
+  const block = text.split("<!-- agent-hub:hermes:memory:start -->\n")[1]?.split("\n<!-- agent-hub:hermes:memory:end -->")[0] ?? "";
+  assert.match(block, /before\n§ \nafter/);
+  assert.equal(block.includes("\n§\n"), false);
+  await fs.writeFile(dest, `${text.trimEnd()}\n§\nlocal note\n`);
+  await syncMemoryInjects(undefined, { agent: "hermes" });
+  const next = (await readText(dest))!;
+  assert.match(next, /\n§\nlocal note\n/);
+  assert.match(next, /before\n§ \nafter/);
+});
+
 test("Hyper refuses a document its native loader may silently omit", async () => {
   const dest = path.join(workspace, "AGENTS.md");
   await fs.writeFile(dest, "既有人设与项目约定".repeat(80));

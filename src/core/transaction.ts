@@ -8,6 +8,12 @@ type Entry = { target: string; backup: string; existed: boolean };
 type Context = { root: string; active: boolean; journal?: string; entries: Entry[] };
 const context = new AsyncLocalStorage<Context>();
 const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+let lockEpoch = 0;
+
+/** Non-zero while this process holds the hub writer lock. Nested calls keep the same epoch. */
+export function hubLockEpoch(): number {
+  return context.getStore()?.active ? lockEpoch : 0;
+}
 
 async function restore(entries: Entry[]): Promise<void> {
   // Missing recovery material must not delete the only remaining target copy.
@@ -60,6 +66,7 @@ export async function withHubLock<T>(run: () => Promise<T>): Promise<T> {
         await pause(25);
       }
     }
+    lockEpoch += 1;
     const state: Context = { root, active: true, entries: [] };
     return await context.run(state, async () => {
       try {

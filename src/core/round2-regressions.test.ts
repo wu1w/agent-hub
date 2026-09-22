@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
 import { applyBind } from "./bind.ts";
-import { hubPaths, loadConfig, saveConfig, setBind } from "./config.ts";
+import { hubPaths, loadConfig, saveConfig, setAgentEnabled, setBind } from "./config.ts";
 import { selectMemoryProject, workspaceMemoryPath, syncMemoryInjects } from "./deliver.ts";
 import { listIdentityBackups, restoreIdentity, writeAllowed } from "./files.ts";
 import { writeProjectMemory } from "./memory.ts";
@@ -52,20 +52,45 @@ after(async () => {
   await fs.rm(tmp, { recursive: true, force: true });
 });
 
-test("R2 conflict plan does not move other Own skills or change bind", async () => {
+test("R2 a name conflict stays local while the rest of the agent still binds to Hub", async () => {
   const p = hubPaths();
   await put(path.join(p.skills, "clash", "SKILL.md"), "# hub\n");
   await put(path.join(home, ".workbuddy", "skills", "clash", "SKILL.md"), "# own\n");
   await put(path.join(home, ".workbuddy", "skills", "unique", "SKILL.md"), "# unique\n");
   const result = await applyBind({ agent: "workbuddy", layer: "skills", value: "hub", skillsMode: "adopt" });
-  assert.ok((result.extra as { conflicts: unknown[] }).conflicts.length >= 1);
-  assert.equal(result.config.bind.workbuddy.skills, "own");
-  assert.equal(await exists(path.join(home, ".workbuddy", "skills", "unique")), true);
-  assert.equal(await exists(path.join(home, ".grok", "skills", "unique")), false);
+  assert.ok((result.extra as { conflicts: { name: string }[] }).conflicts.some((item) => item.name === "clash"));
+  assert.equal(result.config.bind.workbuddy.skills, "hub");
+  assert.equal(await fs.readFile(path.join(home, ".workbuddy", "skills", "clash", "SKILL.md"), "utf8"), "# own\n");
+  assert.equal((await fs.lstat(path.join(home, ".workbuddy", "skills", "unique"))).isSymbolicLink(), true);
+  assert.equal(await fs.readFile(path.join(p.skills, "unique", "SKILL.md"), "utf8"), "# unique\n");
+});
+
+test("Hermes bundled skills stay in place and a local name clash does not block Hub", async () => {
+  const skills = path.join(home, ".hermes", "skills");
+  await put(path.join(skills, "productivity", "pdf", "SKILL.md"), "# bundled pdf\n");
+  await put(path.join(skills, "creative", "mine", "SKILL.md"), "# mine\n");
+  await put(path.join(skills, "notes", "shared", "SKILL.md"), "# hermes shared\n");
+  await put(path.join(skills, ".bundled_manifest"), "pdf:abc\n");
+  await put(path.join(home, ".hermes", "config.yaml"), "{}\n");
+  await put(path.join(hubPaths().skills, "shared", "SKILL.md"), "# hub shared\n");
+  await setAgentEnabled("hermes", true);
+  const result = await applyBind({ agent: "hermes", layer: "skills", value: "hub", skillsMode: "adopt" });
+  const extra = result.extra as { conflicts: { name: string }[]; moved: string[] };
+  assert.equal(result.config.bind.hermes.skills, "hub");
+  assert.ok(extra.conflicts.some((item) => item.name === "shared"));
+  assert.equal(extra.moved.includes("pdf"), false);
+  assert.equal(await fs.readFile(path.join(skills, "productivity", "pdf", "SKILL.md"), "utf8"), "# bundled pdf\n");
+  assert.equal((await fs.lstat(path.join(skills, "productivity", "pdf"))).isDirectory(), true);
+  assert.equal(await exists(path.join(hubPaths().skills, "pdf")), false);
+  assert.equal((await fs.lstat(path.join(skills, "creative", "mine"))).isSymbolicLink(), true);
+  assert.equal(await fs.readFile(path.join(skills, "notes", "shared", "SKILL.md"), "utf8"), "# hermes shared\n");
+  assert.equal(await exists(path.join(skills, "shared")), false);
+  assert.equal((await fs.lstat(path.join(skills, "unique"))).isSymbolicLink(), true);
 });
 
 test("R2b a unique Own skill adopts and commits Hub bind", async () => {
   await fs.rm(path.join(home, ".workbuddy", "skills", "clash"), { recursive: true, force: true });
+  await setBind("workbuddy", "skills", "own");
   await put(path.join(home, ".workbuddy", "skills", "only-new", "SKILL.md"), "# unique\n");
   const result = await applyBind({ agent: "workbuddy", layer: "skills", value: "hub", skillsMode: "adopt" });
   assert.equal((result.extra as { conflicts: unknown[] }).conflicts.length, 0);

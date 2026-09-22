@@ -99,6 +99,9 @@ export async function syncNativeMemory(agent: AgentId, body: string | null, cwd?
   for (const entry of prior) if (entry.path !== target?.path) await detach(entry, agent);
   if (!target || body === null) delete state[key];
   else {
+    if (body.includes("<!-- agent-hub:")) throw new Error("memory contains reserved Hub block markers");
+    // Hermes splits MEMORY.md on a bare newline-delimited §. Keep the Hub block one entry.
+    if (agent === "hermes") body = body.replaceAll("\n§\n", "\n§ \n");
     await protectMemoryTarget(target.path, cwd);
     if (target.reference) await protectMemoryTarget(target.reference.path, cwd);
     for (const [otherKey, entries] of Object.entries(state)) {
@@ -112,7 +115,6 @@ export async function syncNativeMemory(agent: AgentId, body: string | null, cwd?
       }
     }
     const [start, end] = markers(agent);
-    if (body.includes("<!-- agent-hub:")) throw new Error("memory contains reserved Hub block markers");
     const current = await readText(target.path);
     const tracked = prior.find(e => e.path === target.path);
     if (!tracked && (current?.includes(start) || current?.includes(end))) throw new Error("untracked Hub memory block; refusing to overwrite");

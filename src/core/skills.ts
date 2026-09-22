@@ -1,4 +1,4 @@
-import { checkpoint, transaction } from "./transaction.ts";
+import { checkpoint, hubLockEpoch, transaction } from "./transaction.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { HubError } from "./errors.ts";
@@ -68,8 +68,10 @@ export async function skillTreeBlocked(dir: string, _depth = 0, visited = new Se
   if (visited.size > 10000) throw new Error("skill tree exceeds safety scan limit");
   const stat = await fs.stat(real);
   if (!stat.isDirectory()) return false;
-  for (const name of await fs.readdir(real)) {
-    if (await skillTreeBlocked(path.join(real, name), 0, visited)) return true;
+  // Regular files cannot escape into a vendor or vault tree. Follow directories and symlinks only.
+  for (const entry of await fs.readdir(real, { withFileTypes: true })) {
+    if (!entry.isSymbolicLink() && !entry.isDirectory()) continue;
+    if (await skillTreeBlocked(path.join(real, entry.name), 0, visited)) return true;
   }
   return false;
 }
@@ -88,17 +90,28 @@ async function assertMount(dir: string): Promise<void> {
   }
 }
 
-export async function isBlockedSource(realpath: string): Promise<boolean> {
+let blockedMemo: { epoch: number; home: string; prefixes: string[] } | null = null;
+
+async function blockedPrefixes(): Promise<string[]> {
+  const epoch = hubLockEpoch();
   const home = homedir();
-  const p = hubPaths();
-  const abs = path.resolve(realpath);
-  const vault = (await realpathOr(p.vault)) ?? p.vault;
-  if (abs === vault || abs.startsWith(vault + path.sep)) return true;
+  if (epoch && blockedMemo?.epoch === epoch && blockedMemo.home === home) return blockedMemo.prefixes;
+  const prefixes: string[] = [];
+  const vault = hubPaths().vault;
+  prefixes.push((await realpathOr(vault)) ?? path.resolve(vault));
   for (const ad of ADAPTERS) {
     for (const vendorDir of ad.vendorSkillDirs(home)) {
-      const vendorReal = (await realpathOr(vendorDir)) ?? path.resolve(vendorDir);
-      if (abs === vendorReal || abs.startsWith(vendorReal + path.sep)) return true;
+      prefixes.push((await realpathOr(vendorDir)) ?? path.resolve(vendorDir));
     }
+  }
+  if (epoch) blockedMemo = { epoch, home, prefixes };
+  return prefixes;
+}
+
+export async function isBlockedSource(realpath: string): Promise<boolean> {
+  const abs = path.resolve(realpath);
+  for (const prefix of await blockedPrefixes()) {
+    if (abs === prefix || abs.startsWith(prefix + path.sep)) return true;
   }
   return false;
 }
@@ -109,14 +122,16 @@ async function mountedSkillName(file: string, fallback: string): Promise<string>
   return real && hub && real.startsWith(hub + path.sep) ? assertSkillName(path.relative(hub, real)) : fallback;
 }
 
-export async function scanUserSkills(config: HubConfig): Promise<MountedSkill[]> {
+export async function scanUserSkills(config: HubConfig, extra?: AgentId): Promise<MountedSkill[]> {
   const home = homedir();
   const out: MountedSkill[] = [];
-  for (const id of config.agents.enabled) {
+  const ids = extra && !config.agents.enabled.includes(extra) ? [...config.agents.enabled, extra] : config.agents.enabled;
+  for (const id of ids) {
     if (adapter(id).memoryOnly) continue;
     const dir = resolvedSkillDir(id, home, config);
+    const vendors = adapter(id).vendorSkillDirs(home);
     for (const entry of await skillEntries(dir)) {
-      if (adapter(id).vendorSkillDirs(home).some(vendor => entry.path === vendor || entry.path.startsWith(vendor + path.sep))) continue;
+      if (vendors.some(vendor => entry.path === vendor || entry.path.startsWith(vendor + path.sep))) continue;
       out.push({
         agent: id,
         name: await mountedSkillName(entry.path, entry.name),
@@ -189,8 +204,8 @@ export async function linkStateFor(
   return "missing";
 }
 
-export async function skillRecords(config: HubConfig): Promise<SkillRecord[]> {
-  const mounted = await scanUserSkills(config);
+export async function skillRecords(config: HubConfig, preloaded?: MountedSkill[]): Promise<SkillRecord[]> {
+  const mounted = preloaded ?? await scanUserSkills(config);
   const hubSkills = await listHubSkills();
   const records: SkillRecord[] = [];
   for (const skill of hubSkills) {
@@ -217,7 +232,7 @@ async function uniqueRealDirs(entries: MountedSkill[]): Promise<string[]> {
   return [...reals];
 }
 
-export type AdoptOpts = { only?: AgentId; includeOwn?: boolean; names?: string[] };
+export type AdoptOpts = { only?: AgentId; includeOwn?: boolean; names?: string[]; deferRelink?: boolean };
 
 type AdoptAction =
   | { name: string; kind: "skip"; reason: string }
@@ -232,7 +247,7 @@ async function planAdoptSkills(
   config: Awaited<ReturnType<typeof loadConfig>>,
 ): Promise<AdoptAction[]> {
   const p = hubPaths();
-  const mountedAll = await scanUserSkills(config);
+  const mountedAll = await scanUserSkills(config, options.only);
   const mounted = mountedAll.filter((item) => {
     if (options.names && !options.names.includes(item.name)) return false;
     if (options.only && item.agent !== options.only) return false;
@@ -305,8 +320,10 @@ async function planAdoptSkills(
     }
 
     const foreign = foreignCopies(mountedAll, name, sourceReal, hubReal);
-    if (foreign.length > 0) {
-      actions.push({ name, kind: "conflict", paths: foreign.map((item) => item.path) });
+    // Another agent's leftover copy must not block this agent from linking the Hub skill.
+    const blocking = options.only ? foreign.filter((item) => item.agent === options.only) : foreign;
+    if (blocking.length > 0) {
+      actions.push({ name, kind: "conflict", paths: blocking.map((item) => item.path) });
       continue;
     }
     actions.push({ name, kind: "keep", to: hubDest });
@@ -335,16 +352,16 @@ export async function adoptSkills(mode: AdoptMode = "adopt", opts?: AdoptOpts | 
     await ensureHub();
     const config = await loadConfig();
     const actions = await planAdoptSkills(mode, options, config);
-    for (const id of config.agents.enabled) {
+    const mountIds = options.only && !config.agents.enabled.includes(options.only) ? [...config.agents.enabled, options.only] : config.agents.enabled;
+    for (const id of mountIds) {
       if (config.bind[id].skills === "hub" || options.only === id) await assertMount(resolvedSkillDir(id, homedir(), config));
     }
-    const mountedBefore = await scanUserSkills(config);
+    const mountedBefore = await scanUserSkills(config, options.only);
     const report: AdoptReport = { moved: [], linked: [], skipped: [], conflicts: [] };
     for (const action of actions) {
       if (action.kind === "skip") report.skipped.push({ name: action.name, reason: action.reason });
       if (action.kind === "conflict") report.conflicts.push({ name: action.name, paths: action.paths });
     }
-    if (report.conflicts.length > 0) return report;
 
     for (const action of actions) {
       if (action.kind === "move") {
@@ -368,8 +385,10 @@ export async function adoptSkills(mode: AdoptMode = "adopt", opts?: AdoptOpts | 
         await ensureLink(item.path, target);
       }
     }
-    const linked = await relinkHubSkills(config);
-    report.linked.push(...linked);
+    if (!options.deferRelink) {
+      const linked = await relinkHubSkills(config);
+      report.linked.push(...linked);
+    }
     return report;
   });
 }
@@ -379,14 +398,29 @@ export async function relinkHubSkills(config?: HubConfig): Promise<string[]> {
     const cfg = config ?? (await loadConfig());
     const home = homedir();
     const hubSkills = await listHubSkills();
+    const blocked = new Set<string>();
+    const hubReal = new Map<string, string | null>();
+    for (const skill of hubSkills) {
+      hubReal.set(skill.path, await realpathOr(skill.path));
+      if (await skillTreeBlocked(skill.path)) blocked.add(skill.path);
+    }
     const linked: string[] = [];
     for (const id of cfg.agents.enabled) {
       if (adapter(id).memoryOnly || cfg.bind[id].skills !== "hub") continue;
       const dir = resolvedSkillDir(id, home, cfg);
       await assertMount(dir);
       await fs.mkdir(dir, { recursive: true });
+      const copies = new Map<string, { path: string; real: string | null }[]>();
+      for (const entry of await skillEntries(dir)) {
+        const list = copies.get(entry.name) ?? [];
+        list.push({ path: entry.path, real: await realpathOr(entry.path) });
+        copies.set(entry.name, list);
+      }
       for (const skill of hubSkills) {
-        if (await skillTreeBlocked(skill.path)) throw new Error(`protected skill tree: ${skill.name}`);
+        if (blocked.has(skill.path)) {
+          linked.push(`${id}:${skill.name}:skipped`);
+          continue;
+        }
         const dest = path.join(dir, skill.name);
         const allowed = skillAllowedFor(skill.targets, id, cfg.layers.skills.default_targets);
         if (!allowed) {
@@ -395,6 +429,12 @@ export async function relinkHubSkills(config?: HubConfig): Promise<string[]> {
             await fs.unlink(mount);
             linked.push(`${id}:${skill.name}:unlinked`);
           }
+          continue;
+        }
+        const real = hubReal.get(skill.path) ?? null;
+        const others = (copies.get(skill.name) ?? []).filter((item) => path.resolve(item.path) !== path.resolve(dest) && !(real && item.real === real));
+        if (others.length && !(await exists(dest))) {
+          linked.push(`${id}:${skill.name}:kept-local`);
           continue;
         }
         if (await isSymlink(dest) || !(await exists(dest))) {
@@ -440,8 +480,6 @@ async function ensureLink(
   linkPath: string,
   target: string,
 ): Promise<"created" | "ok" | "retargeted" | "skip"> {
-  await assertSafeWritePath(path.dirname(linkPath));
-  await checkpoint(linkPath);
   const absTarget = path.resolve(target);
   if (await isSymlink(linkPath)) {
     const current = await realpathOr(linkPath);
@@ -449,6 +487,7 @@ async function ensureLink(
     if (current && want && current === want) return "ok";
     if (current) return "skip";
     if (await isHubOwnedLink(linkPath, absTarget)) {
+      await assertSafeWritePath(path.dirname(linkPath));
       await checkpoint(linkPath);
       await fs.unlink(linkPath);
       await fs.symlink(absTarget, linkPath);
@@ -457,6 +496,8 @@ async function ensureLink(
     return "skip";
   }
   if (await exists(linkPath)) return "skip";
+  await assertSafeWritePath(path.dirname(linkPath));
+  await checkpoint(linkPath);
   await fs.mkdir(path.dirname(linkPath), { recursive: true });
   await fs.symlink(absTarget, linkPath);
   return "created";
@@ -551,10 +592,12 @@ export async function removeHubSkill(name: string): Promise<void> {
 
 export async function conflictRows(
   config?: HubConfig,
+  preloadedRecords?: SkillRecord[],
+  preloadedMounted?: MountedSkill[],
 ): Promise<{ name: string; agent: AgentId; path: string }[]> {
   const cfg = config ?? (await loadConfig());
-  const mounted = await scanUserSkills(cfg);
-  const records = await skillRecords(cfg);
+  const mounted = preloadedMounted ?? await scanUserSkills(cfg);
+  const records = preloadedRecords ?? await skillRecords(cfg, mounted);
   const out: { name: string; agent: AgentId; path: string }[] = [];
   for (const rec of records) {
     for (const id of cfg.agents.enabled) {
@@ -578,9 +621,10 @@ export async function conflictRows(
 
 export async function brokenRows(
   config?: HubConfig,
+  preloadedRecords?: SkillRecord[],
 ): Promise<{ name: string; agent: AgentId; path: string }[]> {
   const cfg = config ?? (await loadConfig());
-  const records = await skillRecords(cfg);
+  const records = preloadedRecords ?? await skillRecords(cfg);
   const out: { name: string; agent: AgentId; path: string }[] = [];
   for (const rec of records) {
     for (const id of cfg.agents.enabled) {

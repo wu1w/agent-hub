@@ -213,6 +213,7 @@ test("A11 rejected bind restores selection and enables control", async () => {
   const context = vm.createContext(i18nSandbox({
     api: async () => { throw new Error("HTTP 409"); },
     banner: (s: string) => { message = s; },
+    notice() {},
     confirmBox: async () => "ok",
     renderAll() {},
     refreshBanner() {},
@@ -223,6 +224,28 @@ test("A11 rejected bind restores selection and enables control", async () => {
   const select = { value: "hub", disabled: false };
   await context.onBind({ id: "codex", label: "Codex", bind: { memory: "own" } }, "memory", "hub", select);
   assert.equal(select.value, "own"); assert.equal(select.disabled, false); assert.match(message, /409/);
+});
+
+test("bind shows progress before the request returns", async () => {
+  const source = await fs.readFile(new URL("../../web/app.js", import.meta.url), "utf8");
+  let phase = "idle";
+  const context = vm.createContext(i18nSandbox({
+    api: async () => {
+      phase = phase === "banner.binding" ? "seen" : "late";
+      return { snapshot: {}, extra: null };
+    },
+    banner() {},
+    notice: (key: string) => { if (phase === "idle") phase = key; },
+    confirmBox: async () => "ok",
+    renderAll() {},
+    refreshBanner() {},
+    LAYER_META: { memory: { labelKey: "layer.memory" } },
+  }));
+  vm.runInContext(await i18nPrelude() + "\n" + extractFunction(source, "onBind"), context);
+  const select = { value: "hub", disabled: false };
+  await context.onBind({ id: "codex", label: "Codex", bind: { memory: "own" } }, "memory", "hub", select);
+  assert.equal(phase, "seen");
+  assert.equal(select.disabled, false);
 });
 
 test("agent drafts survive card rebuild and keep original revision on conflict", async () => {

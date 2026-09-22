@@ -50,10 +50,7 @@ export async function applyBind(input: BindInput): Promise<{ config: HubConfig; 
         if (input.skillsMode !== "adopt" && input.skillsMode !== "link-existing") {
           throw new HubError("skillsMode adopt|link-existing required", 400);
         }
-        const extra = await adoptSkills(input.skillsMode, { only: agent, includeOwn: true });
-        if (extra.conflicts.length > 0) {
-          return { config: await loadConfig(), extra };
-        }
+        const extra = await adoptSkills(input.skillsMode, { only: agent, includeOwn: true, deferRelink: true });
         const config = await setBind(agent, layer, value);
         await relinkHubSkills(config);
         return { config, extra };

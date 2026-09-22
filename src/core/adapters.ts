@@ -76,6 +76,44 @@ export function agentHome(id: AgentId, home = homedir()): string {
   return env && process.env[env]?.trim() ? resolveUserPath(process.env[env]!, home) : path.join(home, fallback);
 }
 
+/** Skill directories named in Hermes's sync manifest. Missing or unreadable manifests yield none. */
+export function hermesBundledSkillDirs(home = homedir()): string[] {
+  const root = path.join(agentHome("hermes", home), "skills");
+  let text = "";
+  try {
+    text = fsSync.readFileSync(path.join(root, ".bundled_manifest"), "utf8");
+  } catch {
+    return [];
+  }
+  const names = new Set<string>();
+  for (const line of text.split("\n")) {
+    const name = line.split(":")[0]?.trim() ?? "";
+    if (name && name === path.basename(name) && !name.startsWith(".")) names.add(name);
+  }
+  if (!names.size) return [];
+  const out: string[] = [];
+  const walk = (dir: string, depth: number) => {
+    let entries: fsSync.Dirent[] = [];
+    try {
+      entries = fsSync.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+      const full = path.join(dir, entry.name);
+      if (names.has(entry.name)) {
+        try {
+          if (fsSync.statSync(path.join(full, "SKILL.md")).isFile()) out.push(full);
+        } catch { /* category directory, not a skill */ }
+      }
+      if (depth < 4) walk(full, depth + 1);
+    }
+  };
+  walk(root, 0);
+  return out;
+}
+
 export const ADAPTERS: Adapter[] = [
   {
     id: "grok",
@@ -152,7 +190,7 @@ export const ADAPTERS: Adapter[] = [
     identityPath: (h) => path.join(agentHome(id, h), id === "hermes" ? "SOUL.md" : "CLAUDE.md"),
     subagentDir: id === "claude" ? (h) => path.join(agentHome(id, h), "agents") : undefined,
     skillDir: (h) => path.join(agentHome(id, h), "skills"),
-    vendorSkillDirs: () => [],
+    vendorSkillDirs: id === "hermes" ? hermesBundledSkillDirs : () => [],
     nativeMemoryDirs: (h) => [path.join(agentHome(id, h), id === "hermes" ? "memories" : "memory")],
     memoryInjectPath: (h) => path.join(agentHome(id, h), "hub", "memory.md"),
     vaultCatalogPath: (h) => path.join(agentHome(id, h), "hub", "vault.md"),
