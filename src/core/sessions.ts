@@ -1,4 +1,4 @@
-import { withHubLock } from "./transaction.ts";
+import { tryWithHubLock, withHubLock } from "./transaction.ts";
 import fsSync, { type Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -47,6 +47,9 @@ function openIndex(): DatabaseSync {
   const cols = db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
   if (!cols.some((col) => col.name === "summary")) {
     db.exec("ALTER TABLE sessions ADD COLUMN summary TEXT NOT NULL DEFAULT ''");
+  }
+  if (!cols.some((col) => col.name === "source_mtime")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN source_mtime INTEGER NOT NULL DEFAULT 0");
   }
   cached = { path: file, db };
   return db;
@@ -162,7 +165,9 @@ export async function cursorFolderToCwd(folder: string, home: string): Promise<s
   return underHome;
 }
 
-async function scanGrok(home: string, now: number): Promise<SessionRecord[]> {
+type ListedSource = { file: string; fileMtime: number; sessionId?: string; cwd?: string; title?: string };
+
+async function grokSources(home: string): Promise<ListedSource[]> {
   const root = adapter("grok").sessionRoot?.(home);
   if (!root) return [];
   let groups: string[] = [];
@@ -171,7 +176,7 @@ async function scanGrok(home: string, now: number): Promise<SessionRecord[]> {
   } catch {
     return [];
   }
-  const out: SessionRecord[] = [];
+  const out: ListedSource[] = [];
   for (const group of groups) {
     const groupPath = path.join(root, group);
     if (!(await isDir(groupPath))) continue;
@@ -190,38 +195,52 @@ async function scanGrok(home: string, now: number): Promise<SessionRecord[]> {
       continue;
     }
     for (const sid of children) {
-      if (!(await isDir(path.join(groupPath, sid)))) continue;
       const summaryPath = path.join(groupPath, sid, "summary.json");
-      const raw = await readText(summaryPath);
-      if (raw == null) continue;
-      let parsed: Record<string, unknown> = {};
-      try {
-        parsed = JSON.parse(raw) as Record<string, unknown>;
-      } catch {
-        continue;
-      }
-      const info = asRecord(parsed.info);
-      const sessionId = String(info?.id ?? sid);
-      const title = String(parsed.generated_title || parsed.session_summary || parsed.title || sessionId);
-      const summary = String(parsed.session_summary || parsed.generated_title || parsed.title || "");
-      const updated = String(parsed.updated_at || parsed.last_active_at || parsed.created_at || "");
-      const parsedMs = Date.parse(updated);
-      out.push({
-        agent_id: "grok",
-        session_id: sessionId,
-        cwd: String(info?.cwd || cwd),
-        title,
-        summary,
-        mtime: Number.isFinite(parsedMs) ? parsedMs : await mtimeMs(summaryPath),
-        source_path: summaryPath,
-        indexed_at: now,
-      });
+      if (!(await isDir(path.join(groupPath, sid))) || !(await exists(summaryPath))) continue;
+      out.push({ file: summaryPath, fileMtime: await mtimeMs(summaryPath), sessionId: sid, cwd });
     }
   }
   return out;
 }
 
-async function scanCursor(home: string, now: number): Promise<SessionRecord[]> {
+async function grokRecord(source: ListedSource, now: number): Promise<SessionRecord | null> {
+  const raw = await readText(source.file);
+  if (raw == null) return null;
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const info = asRecord(parsed.info);
+  const sid = source.sessionId ?? path.basename(path.dirname(source.file));
+  const sessionId = String(info?.id ?? sid);
+  const title = String(parsed.generated_title || parsed.session_summary || parsed.title || sessionId);
+  const summary = String(parsed.session_summary || parsed.generated_title || parsed.title || "");
+  const updated = String(parsed.updated_at || parsed.last_active_at || parsed.created_at || "");
+  const parsedMs = Date.parse(updated);
+  return {
+    agent_id: "grok",
+    session_id: sessionId,
+    cwd: String(info?.cwd || source.cwd || ""),
+    title,
+    summary,
+    mtime: Number.isFinite(parsedMs) ? parsedMs : source.fileMtime,
+    source_path: source.file,
+    indexed_at: now,
+  };
+}
+
+async function scanGrok(home: string, now: number): Promise<SessionRecord[]> {
+  const out: SessionRecord[] = [];
+  for (const source of await grokSources(home)) {
+    const rec = await grokRecord(source, now);
+    if (rec) out.push(rec);
+  }
+  return out;
+}
+
+async function cursorSources(home: string): Promise<ListedSource[]> {
   const root = adapter("cursor").sessionRoot?.(home);
   if (!root) return [];
   let projects: string[] = [];
@@ -230,7 +249,7 @@ async function scanCursor(home: string, now: number): Promise<SessionRecord[]> {
   } catch {
     return [];
   }
-  const out: SessionRecord[] = [];
+  const out: ListedSource[] = [];
   for (const folder of projects) {
     const transcripts = path.join(root, folder, "agent-transcripts");
     if (!(await isDir(transcripts))) continue;
@@ -260,14 +279,21 @@ async function scanCursor(home: string, now: number): Promise<SessionRecord[]> {
         for (const name of nested) {
           if (!name.endsWith(".jsonl")) continue;
           const nestedFile = path.join(transcripts, sid, name);
-          const rec = await cursorRecord(nestedFile, name.replace(/\.jsonl$/, ""), cwd, now);
-          if (rec) out.push(rec);
+          out.push({ file: nestedFile, fileMtime: await mtimeMs(nestedFile), sessionId: name.replace(/\.jsonl$/, ""), cwd });
         }
         continue;
       }
-      const rec = await cursorRecord(file, sid.replace(/\.jsonl$/i, ""), cwd, now);
-      if (rec) out.push(rec);
+      out.push({ file, fileMtime: await mtimeMs(file), sessionId: sid.replace(/\.jsonl$/i, ""), cwd });
     }
+  }
+  return out;
+}
+
+async function scanCursor(home: string, now: number): Promise<SessionRecord[]> {
+  const out: SessionRecord[] = [];
+  for (const source of await cursorSources(home)) {
+    const rec = await cursorRecord(source.file, source.sessionId ?? path.basename(source.file, ".jsonl"), source.cwd ?? "", now);
+    if (rec) out.push(rec);
   }
   return out;
 }
@@ -300,51 +326,85 @@ async function cursorRecord(
   };
 }
 
-async function scanCodex(home: string, now: number): Promise<SessionRecord[]> {
+async function codexSources(home: string): Promise<ListedSource[]> {
   const root = adapter("codex").sessionRoot?.(home);
   if (!root) return [];
   const files = await walkJsonl(root, "rollout-");
+  const out: ListedSource[] = [];
+  for (const file of files) out.push({ file, fileMtime: await mtimeMs(file) });
+  return out;
+}
+
+async function readCodexHead(file: string): Promise<{ sessionId: string; cwd: string; title: string } | null> {
+  const head = await readHead(file, 256_000);
+  if (head == null) return null;
+  const records = jsonlRecords(head, 60);
+  let sessionId = "";
+  let cwd = "";
+  let rawUser = "";
+  for (const item of records) {
+    const rec = asRecord(item);
+    if (!rec) continue;
+    const payload = asRecord(rec.payload);
+    if (rec.type === "session_meta" && payload) {
+      sessionId = String(payload.session_id || payload.id || "");
+      cwd = String(payload.cwd || "");
+    }
+    const role = payload?.role;
+    const text = contentText(payload?.content);
+    if (role === "user" && text && !skipUserWrapper(text) && !rawUser) {
+      rawUser = text;
+    }
+  }
+  if (!sessionId) {
+    const hit = file.match(UUID);
+    sessionId = hit?.[0] ?? path.basename(file, ".jsonl");
+  }
+  return { sessionId, cwd, title: rawUser || path.basename(file, ".jsonl") };
+}
+
+/** Codex resume keeps one session id across rollout files. The newest file is the live transcript. */
+async function newestCodexSources(sources: ListedSource[]): Promise<ListedSource[]> {
+  const best = new Map<string, ListedSource>();
+  for (const source of sources) {
+    const head = await readCodexHead(source.file);
+    if (!head) continue;
+    const candidate: ListedSource = { ...source, sessionId: head.sessionId, cwd: head.cwd, title: head.title };
+    const prev = best.get(head.sessionId);
+    if (!prev || candidate.fileMtime > prev.fileMtime || (candidate.fileMtime === prev.fileMtime && candidate.file > prev.file)) {
+      best.set(head.sessionId, candidate);
+    }
+  }
+  return [...best.values()];
+}
+
+async function codexRecord(source: ListedSource, now: number): Promise<SessionRecord | null> {
+  const head = source.sessionId
+    ? { sessionId: source.sessionId, cwd: source.cwd ?? "", title: source.title || path.basename(source.file, ".jsonl") }
+    : await readCodexHead(source.file);
+  if (!head) return null;
+  return {
+    agent_id: "codex",
+    session_id: head.sessionId,
+    cwd: head.cwd,
+    title: head.title,
+    summary: await recentSummary(source.file),
+    mtime: source.fileMtime,
+    source_path: source.file,
+    indexed_at: now,
+  };
+}
+
+async function scanCodex(home: string, now: number): Promise<SessionRecord[]> {
   const out: SessionRecord[] = [];
-  for (const file of files) {
-    const head = await readHead(file, 256_000);
-    if (head == null) continue;
-    const records = jsonlRecords(head, 60);
-    let sessionId = "";
-    let cwd = "";
-    let rawUser = "";
-    for (const item of records) {
-      const rec = asRecord(item);
-      if (!rec) continue;
-      const payload = asRecord(rec.payload);
-      if (rec.type === "session_meta" && payload) {
-        sessionId = String(payload.session_id || payload.id || "");
-        cwd = String(payload.cwd || "");
-      }
-      const role = payload?.role;
-      const text = contentText(payload?.content);
-      if (role === "user" && text && !skipUserWrapper(text) && !rawUser) {
-        rawUser = text;
-      }
-    }
-    if (!sessionId) {
-      const hit = file.match(UUID);
-      sessionId = hit?.[0] ?? path.basename(file, ".jsonl");
-    }
-    out.push({
-      agent_id: "codex",
-      session_id: sessionId,
-      cwd,
-      title: rawUser || path.basename(file, ".jsonl"),
-      summary: await recentSummary(file),
-      mtime: await mtimeMs(file),
-      source_path: file,
-      indexed_at: now,
-    });
+  for (const source of await newestCodexSources(await codexSources(home))) {
+    const rec = await codexRecord(source, now);
+    if (rec) out.push(rec);
   }
   return out;
 }
 
-async function scanHyper(home: string, now: number): Promise<SessionRecord[]> {
+async function hyperSources(home: string): Promise<ListedSource[]> {
   const root = adapter("hyper").sessionRoot?.(home);
   if (!root) return [];
   let names: string[] = [];
@@ -353,47 +413,63 @@ async function scanHyper(home: string, now: number): Promise<SessionRecord[]> {
   } catch {
     return [];
   }
-  const out: SessionRecord[] = [];
+  const out: ListedSource[] = [];
   for (const name of names) {
     if (!name.endsWith(".jsonl")) continue;
     const file = path.join(root, name);
-    const head = await readHead(file, 32_000);
-    if (head == null) continue;
-    const records = jsonlRecords(head, 8);
-    let sessionId = name.replace(/\.jsonl$/, "");
-    let cwd = "";
-    let rawUser = "";
-    let title = "";
-    for (const item of records) {
-      const rec = asRecord(item);
-      if (!rec) continue;
-      if (rec.type === "session/start") {
-        if (typeof rec.id === "string") sessionId = rec.id;
-        if (typeof rec.workspace === "string") cwd = rec.workspace;
-      }
-      if (rec.type === "user" && typeof rec.text === "string" && !rawUser) {
-        rawUser = rec.text;
-      }
+    out.push({ file, fileMtime: await mtimeMs(file) });
+  }
+  return out;
+}
+
+async function hyperRecord(source: ListedSource, now: number): Promise<SessionRecord | null> {
+  const file = source.file;
+  const root = path.dirname(file);
+  const name = path.basename(file);
+  const head = await readHead(file, 32_000);
+  if (head == null) return null;
+  const records = jsonlRecords(head, 8);
+  let sessionId = name.replace(/\.jsonl$/, "");
+  let cwd = "";
+  let rawUser = "";
+  let title = "";
+  for (const item of records) {
+    const rec = asRecord(item);
+    if (!rec) continue;
+    if (rec.type === "session/start") {
+      if (typeof rec.id === "string") sessionId = rec.id;
+      if (typeof rec.workspace === "string") cwd = rec.workspace;
     }
-    const meta = await readText(path.join(root, `${sessionId}.meta.json`));
-    if (meta) {
-      try {
-        const parsed = JSON.parse(meta) as { title?: string };
-        if (parsed.title) title = parsed.title;
-      } catch {
-        // keep jsonl title
-      }
+    if (rec.type === "user" && typeof rec.text === "string" && !rawUser) {
+      rawUser = rec.text;
     }
-    out.push({
-      agent_id: "hyper",
-      session_id: sessionId,
-      cwd,
-      title: title || rawUser || sessionId,
-      summary: await recentSummary(file),
-      mtime: await mtimeMs(file),
-      source_path: file,
-      indexed_at: now,
-    });
+  }
+  const meta = await readText(path.join(root, `${sessionId}.meta.json`));
+  if (meta) {
+    try {
+      const parsed = JSON.parse(meta) as { title?: string };
+      if (parsed.title) title = parsed.title;
+    } catch {
+      // keep jsonl title
+    }
+  }
+  return {
+    agent_id: "hyper",
+    session_id: sessionId,
+    cwd,
+    title: title || rawUser || sessionId,
+    summary: await recentSummary(file),
+    mtime: source.fileMtime,
+    source_path: file,
+    indexed_at: now,
+  };
+}
+
+async function scanHyper(home: string, now: number): Promise<SessionRecord[]> {
+  const out: SessionRecord[] = [];
+  for (const source of await hyperSources(home)) {
+    const rec = await hyperRecord(source, now);
+    if (rec) out.push(rec);
   }
   return out;
 }
@@ -430,42 +506,61 @@ function claudeFolderToCwd(folder: string, home: string): string {
   return underHome;
 }
 
+async function jsonlSources(root: string): Promise<ListedSource[]> {
+  const files = await walkJsonl(root, "");
+  const out: ListedSource[] = [];
+  for (const file of files) {
+    if (!file.endsWith(".jsonl")) continue;
+    out.push({ file, fileMtime: await mtimeMs(file) });
+  }
+  return out;
+}
+
+async function jsonlRecord(
+  agent: AgentId,
+  source: ListedSource,
+  now: number,
+  cwdFrom: (folder: string, file: string) => string,
+): Promise<SessionRecord | null> {
+  const file = source.file;
+  const head = await readHead(file, 64_000);
+  if (head == null) return null;
+  const records = jsonlRecords(head, 40);
+  let rawUser = "";
+  for (const item of records) {
+    const rec = asRecord(item);
+    if (!rec) continue;
+    const msg = asRecord(rec.message) ?? rec;
+    const role = msg?.role ?? rec.role ?? rec.type;
+    const text = contentText(msg?.content ?? rec.content ?? rec.text ?? rec.message);
+    if ((role === "user" || rec.type === "user" || rec.type === "user_message") && text && !rawUser && !skipUserWrapper(text)) {
+      rawUser = text;
+    }
+  }
+  const sessionId = path.basename(file, ".jsonl");
+  const folder = path.basename(path.dirname(file));
+  return {
+    agent_id: agent,
+    session_id: sessionId,
+    cwd: cwdFrom(folder, file),
+    title: rawUser || sessionId,
+    summary: await recentSummary(file),
+    mtime: source.fileMtime,
+    source_path: file,
+    indexed_at: now,
+  };
+}
+
 async function scanJsonlSessions(
   agent: AgentId,
   root: string,
   now: number,
   cwdFrom: (folder: string, file: string) => string,
 ): Promise<SessionRecord[]> {
-  const files = await walkJsonl(root, "");
   const out: SessionRecord[] = [];
-  for (const file of files) {
-    if (!file.endsWith(".jsonl")) continue;
-    const head = await readHead(file, 64_000);
-    if (head == null) continue;
-    const records = jsonlRecords(head, 40);
-    let rawUser = "";
-    for (const item of records) {
-      const rec = asRecord(item);
-      if (!rec) continue;
-      const msg = asRecord(rec.message) ?? rec;
-      const role = msg?.role ?? rec.role ?? rec.type;
-      const text = contentText(msg?.content ?? rec.content ?? rec.text ?? rec.message);
-      if ((role === "user" || rec.type === "user" || rec.type === "user_message") && text && !rawUser && !skipUserWrapper(text)) {
-        rawUser = text;
-      }
-    }
-    const sessionId = path.basename(file, ".jsonl");
-    const folder = path.basename(path.dirname(file));
-    out.push({
-      agent_id: agent,
-      session_id: sessionId,
-      cwd: cwdFrom(folder, file),
-      title: rawUser || sessionId,
-      summary: await recentSummary(file),
-      mtime: await mtimeMs(file),
-      source_path: file,
-      indexed_at: now,
-    });
+  for (const source of await jsonlSources(root)) {
+    const rec = await jsonlRecord(agent, source, now, cwdFrom);
+    if (rec) out.push(rec);
   }
   return out;
 }
@@ -491,6 +586,37 @@ const SCANNERS: Partial<Record<AgentId, (home: string, now: number) => Promise<S
   claude: scanClaude,
 };
 
+const SOURCE_LISTERS: Partial<Record<AgentId, (home: string) => Promise<ListedSource[]>>> = {
+  grok: grokSources,
+  cursor: cursorSources,
+  codex: async (home) => newestCodexSources(await codexSources(home)),
+  hyper: hyperSources,
+  hermes: async (home) => {
+    const root = adapter("hermes").sessionRoot?.(home);
+    return root ? jsonlSources(root) : [];
+  },
+  claude: async (home) => {
+    const root = adapter("claude").sessionRoot?.(home);
+    return root ? jsonlSources(root) : [];
+  },
+};
+
+async function readListed(agent: AgentId, source: ListedSource, now: number, home: string): Promise<SessionRecord | null> {
+  if (agent === "grok") return grokRecord(source, now);
+  if (agent === "cursor") return cursorRecord(source.file, source.sessionId ?? path.basename(source.file, ".jsonl"), source.cwd ?? "", now);
+  if (agent === "codex") return codexRecord(source, now);
+  if (agent === "hyper") return hyperRecord(source, now);
+  if (agent === "hermes") return jsonlRecord(agent, source, now, () => "");
+  if (agent === "claude") return jsonlRecord(agent, source, now, (folder) => claudeFolderToCwd(folder, home));
+  return null;
+}
+
+function indexedAgents(config: HubConfig, only?: AgentId): AgentId[] {
+  return (only ? [only] : AGENT_IDS.filter((id) => config.bind[id].sessions === "index")).filter((id) =>
+    config.agents.enabled.includes(id),
+  );
+}
+
 export type IndexReport = {
   upserted: number;
   pruned: number;
@@ -512,22 +638,21 @@ async function rebuildIndexLocked(only?: AgentId): Promise<IndexReport> {
   const material = await requireSecretMaterial();
   const db = openIndex();
   // bind.<agent>.sessions === "index" 是扫描名单的唯一权威；layers.sessions.index 仅为旧配置兼容保留。
-  const agents = (only ? [only] : AGENT_IDS.filter((id) => config.bind[id].sessions === "index")).filter((id) =>
-    config.agents.enabled.includes(id),
-  );
+  const agents = indexedAgents(config, only);
   const seen = new Set<string>();
   const byAgent: Record<string, number> = {};
   let upserted = 0;
   const upsert = db.prepare(`
-    INSERT INTO sessions (agent_id, session_id, cwd, title, summary, mtime, source_path, indexed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sessions (agent_id, session_id, cwd, title, summary, mtime, source_path, indexed_at, source_mtime)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(agent_id, session_id) DO UPDATE SET
       cwd = excluded.cwd,
       title = excluded.title,
       summary = excluded.summary,
       mtime = excluded.mtime,
       source_path = excluded.source_path,
-      indexed_at = excluded.indexed_at
+      indexed_at = excluded.indexed_at,
+      source_mtime = excluded.source_mtime
   `);
   // Read every source before modifying SQLite, so a failed scanner leaves the prior index intact.
   const scanned: SessionRecord[] = [];
@@ -547,7 +672,7 @@ async function rebuildIndexLocked(only?: AgentId): Promise<IndexReport> {
       upsert.run(row.agent_id, row.session_id, row.cwd,
         collapse(redactOrOmit(row.title, material), INDEX_TITLE_MAX),
         collapse(redactOrOmit(row.summary, material), INDEX_SUMMARY_MAX),
-        row.mtime, row.source_path, row.indexed_at);
+        row.mtime, row.source_path, row.indexed_at, await mtimeMs(row.source_path));
       seen.add(`${row.agent_id}\t${row.session_id}`);
       upserted++;
     }
@@ -586,6 +711,94 @@ async function rebuildIndexLocked(only?: AgentId): Promise<IndexReport> {
     byAgent,
     redaction: material.ok ? "ok" : "unavailable",
   };
+}
+
+export type SessionSyncReport = { updated: number; pruned: number; skipped: boolean };
+
+const sessionUpsertSql = `
+  INSERT INTO sessions (agent_id, session_id, cwd, title, summary, mtime, source_path, indexed_at, source_mtime)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(agent_id, session_id) DO UPDATE SET
+    cwd = excluded.cwd,
+    title = excluded.title,
+    summary = excluded.summary,
+    mtime = excluded.mtime,
+    source_path = excluded.source_path,
+    indexed_at = excluded.indexed_at,
+    source_mtime = excluded.source_mtime
+`;
+
+/** Stat indexed agents and rewrite only files whose mtime changed. Skips when another writer holds the lock. */
+export async function syncChangedSessions(): Promise<SessionSyncReport> {
+  const ran = await tryWithHubLock(() => syncChangedSessionsLocked());
+  if (!ran) return { updated: 0, pruned: 0, skipped: true };
+  return ran;
+}
+
+async function syncChangedSessionsLocked(): Promise<SessionSyncReport> {
+  await ensureHub();
+  const config = await loadConfig();
+  const home = homedir();
+  const now = Date.now();
+  const material = await requireSecretMaterial();
+  const db = openIndex();
+  const agents = indexedAgents(config).filter((id) => supportsSessions(id));
+  const pending: { row: SessionRecord; fileMtime: number }[] = [];
+  const prunes: { agent: string; sessionId: string }[] = [];
+  for (const id of agents) {
+    const ad = adapter(id);
+    const known = db.prepare("SELECT session_id, source_path, source_mtime FROM sessions WHERE agent_id = ?").all(id) as {
+      session_id: string;
+      source_path: string;
+      source_mtime: number;
+    }[];
+    if (!(await exists(ad.presentMarker(home)))) {
+      for (const row of known) {
+        if (await exists(row.source_path)) continue;
+        prunes.push({ agent: id, sessionId: row.session_id });
+      }
+      continue;
+    }
+    const list = SOURCE_LISTERS[id];
+    if (!list) continue;
+    const sources = await list(home);
+    const byPath = new Map(known.map((row) => [row.source_path, Number(row.source_mtime)]));
+    const seen = new Set<string>();
+    for (const source of sources) {
+      seen.add(source.file);
+      if (byPath.get(source.file) === source.fileMtime && source.fileMtime !== 0) continue;
+      const rec = await readListed(id, source, now, home);
+      if (!rec) continue;
+      pending.push({ row: rec, fileMtime: source.fileMtime });
+    }
+    for (const row of known) {
+      if (seen.has(row.source_path)) continue;
+      if (await exists(row.source_path)) continue;
+      prunes.push({ agent: id, sessionId: row.session_id });
+    }
+  }
+  const refreshed = new Set(pending.map((item) => `${item.row.agent_id}\t${item.row.session_id}`));
+  const dropping = prunes.filter((row) => !refreshed.has(`${row.agent}\t${row.sessionId}`));
+  if (pending.length || dropping.length) {
+    const upsert = db.prepare(sessionUpsertSql);
+    const del = db.prepare("DELETE FROM sessions WHERE agent_id = ? AND session_id = ?");
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const item of pending) {
+        const row = item.row;
+        upsert.run(row.agent_id, row.session_id, row.cwd,
+          collapse(redactOrOmit(row.title, material), INDEX_TITLE_MAX),
+          collapse(redactOrOmit(row.summary, material), INDEX_SUMMARY_MAX),
+          row.mtime, row.source_path, row.indexed_at, item.fileMtime);
+      }
+      for (const row of dropping) del.run(row.agent, row.sessionId);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+  return { updated: pending.length, pruned: dropping.length, skipped: false };
 }
 
 export function listSessions(opts: {

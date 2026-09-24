@@ -5,6 +5,9 @@ import { adapter, homedir } from "./adapters.ts";
 let epoch = 0;
 let watchers: fs.FSWatcher[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
+let sessionNotify: (() => void) | null = null;
+
+export type HubWatchOptions = { onSessionChange?: () => void };
 
 export function diskEpoch(): number {
   return epoch;
@@ -22,14 +25,18 @@ function bump(): void {
   }, 400);
 }
 
-function watchDir(dir: string): void {
+function watchDir(dir: string, sessions = false): void {
   try {
     if (!fs.existsSync(dir)) return;
+    const onEvent = () => {
+      if (sessions) sessionNotify?.();
+      else bump();
+    };
     let watcher: fs.FSWatcher;
     try {
-      watcher = fs.watch(dir, { persistent: false, recursive: true }, () => bump());
+      watcher = fs.watch(dir, { persistent: false, recursive: true }, onEvent);
     } catch {
-      watcher = fs.watch(dir, { persistent: false }, () => bump());
+      watcher = fs.watch(dir, { persistent: false }, onEvent);
     }
     watcher.on("error", () => {});
     watchers.push(watcher);
@@ -38,8 +45,9 @@ function watchDir(dir: string): void {
   }
 }
 
-export async function startHubWatch(): Promise<() => void> {
+export async function startHubWatch(options: HubWatchOptions = {}): Promise<() => void> {
   stopHubWatch();
+  sessionNotify = options.onSessionChange ?? null;
   try {
     const config = await loadConfig();
     const p = hubPaths();
@@ -48,7 +56,7 @@ export async function startHubWatch(): Promise<() => void> {
     for (const id of config.agents.enabled.slice(0, 24)) {
       watchDir(resolvedSkillDir(id, home, config));
       const root = adapter(id).sessionRoot?.(home);
-      if (root) watchDir(root);
+      if (root) watchDir(root, true);
     }
   } catch {
     // Config may not exist yet during first boot.
@@ -57,6 +65,7 @@ export async function startHubWatch(): Promise<() => void> {
 }
 
 export function stopHubWatch(): void {
+  sessionNotify = null;
   for (const watcher of watchers) {
     try { watcher.close(); } catch { /* already closed */ }
   }

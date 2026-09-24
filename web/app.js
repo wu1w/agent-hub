@@ -2484,6 +2484,21 @@ function renderSessions() {
   }
 }
 
+function acceptSnapshot(next) {
+  const prevIndexed = snap && snap.sessions ? snap.sessions.indexedAt : undefined;
+  const nextIndexed = next && next.sessions ? next.sessions.indexedAt : undefined;
+  const diskChanged = Boolean(snap) && next.diskEpoch !== snap.diskEpoch;
+  const sessionsChanged = Boolean(snap) && nextIndexed !== prevIndexed;
+  snap = next;
+  if (diskChanged) {
+    renderAll();
+    if (!keepDiskChangedQuiet()) notice("banner.diskChanged");
+  }
+  if (sessionsChanged && currentPage === "sessions") {
+    loadSessions().catch((err) => banner(String(err.message ?? err)));
+  }
+}
+
 async function openHandoffSession(rec) {
   go("sessions");
   await loadSessions();
@@ -2514,11 +2529,5 @@ go(location.hash.replace("#/", ""));
 refresh().then(() => { if (snap.skillsStatus !== "unavailable" && !snap.skills.length && !localStorage.getItem(`hub-onboard:${snap.hubRoot}`)) return startOnboarding(); }).catch((err) => banner(String(err.message ?? err)));
 setInterval(() => {
   if (!snap) return;
-  api("/api/snapshot").then((next) => {
-    if (next.diskEpoch !== snap.diskEpoch) {
-      snap = next;
-      renderAll();
-      if (!keepDiskChangedQuiet()) notice("banner.diskChanged");
-    }
-  }).catch(() => {});
+  api("/api/snapshot").then((next) => acceptSnapshot(next)).catch(() => {});
 }, 8000);

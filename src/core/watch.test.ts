@@ -66,6 +66,24 @@ test("startHubWatch still returns a stopper when a watch root is missing", async
   stop();
 });
 
+test("session writes notify without bumping diskEpoch; skill writes do not notify", async () => {
+  let n = 0;
+  const stop = await startHubWatch({ onSessionChange: () => { n += 1; } });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const base = n;
+    const before = diskEpoch();
+    await writeText(path.join(hubPaths().skills, "nested", "quiet", "SKILL.md"), "# quiet\n");
+    assert.equal(await waitFor(() => diskEpoch() > before, 3000), true);
+    assert.equal(n, base);
+    await writeText(path.join(home, ".grok", "sessions", "touch.txt"), "x\n");
+    assert.equal(await waitFor(() => n > base, 3000), true);
+    assert.equal(diskEpoch(), before + 1);
+  } finally {
+    stop();
+  }
+});
+
 test("recursive watch bumps diskEpoch after the debounce", async () => {
   const stop = await startHubWatch();
   try {

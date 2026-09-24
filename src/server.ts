@@ -26,6 +26,7 @@ import {
 } from "./core/skills.ts";
 import { buildSnapshot } from "./core/snapshot.ts";
 import { saveVaultFromMarkdown, setVaultGrants, vaultCatalogFor, renderVaultGetMeta, vaultGet, vaultUiPayload, vaultExecArgv, restoreVaultPrevious } from "./core/vault.ts";
+import { startSessionSync } from "./core/session-sync.ts";
 import { startHubWatch } from "./core/watch.ts";
 import { isAgentId, type AgentId, type ConflictKeep, type Layer } from "./core/types.ts";
 import { adapterCommand } from "./core/adapters.ts";
@@ -605,10 +606,12 @@ export async function startServer(port: number): Promise<http.Server> {
     server.listen(port, "127.0.0.1", () => resolve());
     server.on("error", reject);
   });
-  const stopWatch = await startHubWatch();
+  const sessionSync = startSessionSync();
+  const stopWatch = await startHubWatch({ onSessionChange: () => sessionSync.notify() });
   const originalClose = server.close.bind(server);
   server.close = ((callback?: (err?: Error) => void) => {
     stopWatch();
+    sessionSync.stop();
     closeSessionIndex();
     return originalClose(callback);
   }) as typeof server.close;

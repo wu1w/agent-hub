@@ -66,30 +66,62 @@ export async function withHubLock<T>(run: () => Promise<T>): Promise<T> {
         await pause(25);
       }
     }
-    lockEpoch += 1;
-    const state: Context = { root, active: true, entries: [] };
-    return await context.run(state, async () => {
-      try {
-        const pending = path.join(root, ".transaction");
-        let entries: Entry[] | null = null;
-        try {
-          entries = JSON.parse(await fs.readFile(path.join(pending, "journal.json"), "utf8")) as Entry[];
-        } catch (e) {
-          if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
-          // Only absence of the journal means these are post-commit leftovers.
-          await fs.rm(pending, { recursive: true, force: true });
-        }
-        if (entries) {
-          await restore(entries);
-          await fs.rm(pending, { recursive: true, force: true });
-        }
-        return await run();
-      } finally { state.active = false; }
-    });
+    return await insideLock(root, run);
   } finally {
     // Only remove the lock if it is still our hard link.
     try { if ((await fs.stat(lock)).ino === (await fs.stat(candidate)).ino) await fs.unlink(lock); }
     catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
+    await fs.rm(candidate, { force: true });
+  }
+}
+
+async function insideLock<T>(root: string, run: () => Promise<T>): Promise<T> {
+  lockEpoch += 1;
+  const state: Context = { root, active: true, entries: [] };
+  return await context.run(state, async () => {
+    try {
+      const pending = path.join(root, ".transaction");
+      let entries: Entry[] | null = null;
+      try {
+        entries = JSON.parse(await fs.readFile(path.join(pending, "journal.json"), "utf8")) as Entry[];
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+        // Only absence of the journal means these are post-commit leftovers.
+        await fs.rm(pending, { recursive: true, force: true });
+      }
+      if (entries) {
+        await restore(entries);
+        await fs.rm(pending, { recursive: true, force: true });
+      }
+      return await run();
+    } finally { state.active = false; }
+  });
+}
+
+/** One attempt. A live owner returns undefined instead of waiting out the writer timeout. */
+export async function tryWithHubLock<T>(run: () => Promise<T>): Promise<T | undefined> {
+  const root = hubRoot();
+  const parent = context.getStore();
+  if (parent?.active && parent.root === root) return run();
+  await fs.mkdir(root, { recursive: true });
+  const lock = path.join(root, ".writer.lock");
+  const candidate = path.join(root, `.writer-${randomUUID()}`);
+  await fs.writeFile(candidate, String(process.pid), { mode: 0o600, flag: "wx" });
+  let owned = false;
+  try {
+    try {
+      await fs.link(candidate, lock);
+      owned = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      return undefined;
+    }
+    return await insideLock(root, run);
+  } finally {
+    if (owned) {
+      try { if ((await fs.stat(lock)).ino === (await fs.stat(candidate)).ino) await fs.unlink(lock); }
+      catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
+    }
     await fs.rm(candidate, { force: true });
   }
 }
