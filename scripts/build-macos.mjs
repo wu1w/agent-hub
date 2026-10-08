@@ -60,7 +60,7 @@ await build({
 });
 // Runtime assets only: no source checkout, test fixtures, node_modules or user data.
 await fs.mkdir(path.join(resources, 'web'), { recursive: true });
-for (const name of ['index.html', 'login.html', 'app.js', 'app.css', 'i18n.js', 'errors.js', 'vault-draft.js', 'logo.png', 'logo.jpg', 'favicon-16.png', 'favicon-32.png', 'apple-touch-icon.png']) {
+for (const name of ['index.html', 'login.html', 'app.js', 'app.css', 'i18n.js', 'errors.js', 'vault-draft.js', 'quick-switcher.js', 'logo.png', 'logo.jpg', 'favicon-16.png', 'favicon-32.png', 'apple-touch-icon.png']) {
   await fs.copyFile(path.join(root, 'web', name), path.join(resources, 'web', name));
 }
 for (const locale of ['en', 'zh-Hans']) {

@@ -39,6 +39,7 @@ function deferred() { let release!: () => void; const promise = new Promise<void
 function node() {
   return { value: "", textContent: "", disabled: false, readOnly: false, hidden: false, dataset: {} as Record<string, string>, style: {}, children: [] as unknown[], listeners: new Map<string, (...args: unknown[]) => unknown>(),
     append(...items: unknown[]) { this.children.push(...items); }, replaceChildren() { this.children = []; }, addEventListener(event: string, fn: (...args: unknown[]) => unknown) { this.listeners.set(event, fn); },
+    querySelectorAll: () => [],
     classList: { contains: () => false, toggle() {}, add() {}, remove() {} },
   };
 }
@@ -61,7 +62,7 @@ test("AH02: out-of-order reads cannot mismatch title/target even with identical 
   const first = x.context.openMemory("race-A"), second = x.context.openMemory("race-B");
   await x.click("#btn-save-memory"); assert.equal(writes, 0); assert.equal(x.get("#btn-save-memory").disabled, true);
   b.release(); await second; a.release(); await first;
-  assert.equal(x.state("selectedMemory"), "race-B"); assert.equal(x.get("#memory-title").textContent, "projects/race-B.md");
+  assert.equal(x.state("selectedMemory"), "race-B"); assert.equal(x.get("#memory-title").textContent, "race-B");
   x.input("#memory-editor", "EDIT_FOR_B"); await x.click("#btn-save-memory");
   assert.equal((await readAllowed("memory", undefined, "race-A")).content, "SAME");
   assert.equal((await readAllowed("memory", undefined, "race-B")).content, "EDIT_FOR_B"); assert.equal(writes, 1);
@@ -104,7 +105,7 @@ test("AH02: cancelling discard after project creation never retargets the existi
   await createMemoryProject("cancel-A", "INITIAL_A"); const x = await ui(); await x.context.openMemory("cancel-A");
   x.input("#memory-editor", "DRAFT_A"); x.choices.name = "cancel-B"; x.choices.confirm = false;
   await x.click("#btn-new-project"); assert.equal(x.choices.confirmations, 1);
-  assert.equal(x.state("selectedMemory"), "cancel-A"); assert.equal(x.get("#memory-title").textContent, "projects/cancel-A.md"); assert.equal(x.get("#memory-editor").value, "DRAFT_A");
+  assert.equal(x.state("selectedMemory"), "cancel-A"); assert.equal(x.get("#memory-title").textContent, "cancel-A"); assert.equal(x.get("#memory-editor").value, "DRAFT_A");
   await x.click("#btn-save-memory"); assert.equal((await readAllowed("memory", undefined, "cancel-A")).content, "DRAFT_A");
   assert.notEqual((await readAllowed("memory", undefined, "cancel-B")).content, "DRAFT_A");
 });
@@ -137,6 +138,74 @@ test("AH03: USER.md also keeps edits made during save and retains a conflicting 
   assert.equal(x.state("userDirty"), true); assert.equal(x.get("#user-editor").value, "SECOND_USER_EDIT");
   delay = false; await writeAllowed("user-md", "EXTERNAL_USER_EDIT"); await x.click("#btn-save-user");
   assert.equal(x.state("userDirty"), true); assert.equal(x.get("#user-editor").value, "SECOND_USER_EDIT"); assert.equal((await readAllowed("user-md")).content, "EXTERNAL_USER_EDIT");
+});
+
+test("a memory delivery preview can return to and save the existing source draft without reloading", async () => {
+  await createMemoryProject("preview-draft", "SAVED MEMORY");
+  let sourceReads = 0;
+  const x = await ui(async (url, opts = {}) => {
+    if (url.startsWith("/api/agent-layer")) return { content: "DELIVERED MEMORY", path: "/native", exists: true };
+    if (!opts.method && url.includes("kind=memory")) sourceReads++;
+    return httpApi(url, opts);
+  });
+  x.state("renderMemoryAgentList = () => {};");
+  await x.context.openMemory("preview-draft");
+  const revision = x.state("memoryRevision");
+  x.input("#memory-editor", "UNSAVED SOURCE DRAFT");
+  await x.context.openMemAgent({ id: "grok", label: "Grok", bind: { memory: "hub" } });
+  assert.equal(x.state("memView"), "agent");
+  x.choices.confirm = false;
+  assert.equal(await x.context.openMemory("preview-draft"), true);
+  assert.equal(x.state("memView"), "source");
+  assert.equal(x.state("memoryDirty"), true);
+  assert.equal(x.state("memoryRevision"), revision);
+  assert.equal(x.get("#memory-editor").value, "UNSAVED SOURCE DRAFT");
+  assert.equal(x.choices.confirmations, 0);
+  assert.equal(sourceReads, 1);
+  await x.click("#btn-save-memory");
+  assert.equal((await readAllowed("memory", undefined, "preview-draft")).content, "UNSAVED SOURCE DRAFT");
+});
+
+test("initial preferences remain disabled until content and revision load, then save through the real API", async () => {
+  await writeAllowed("user-md", "INITIAL PREFERENCES");
+  const response = deferred(); let writes = 0;
+  const x = await ui(async (url, opts = {}) => {
+    if (opts.method === "PUT") writes++;
+    const result = await httpApi(url, opts);
+    if (!opts.method && url.includes("kind=user-md")) await response.promise;
+    return result;
+  });
+  assert.equal(x.get("#user-editor").disabled, true);
+  assert.equal(x.get("#btn-save-user").disabled, true);
+  const loading = x.context.loadUserMd();
+  await x.click("#btn-save-user");
+  assert.equal(writes, 0);
+  assert.equal(x.get("#user-editor").disabled, true);
+  response.release(); await loading;
+  assert.equal(x.get("#user-editor").value, "INITIAL PREFERENCES");
+  assert.equal(typeof x.state("userRevision"), "string");
+  assert.equal(x.get("#user-editor").disabled, false);
+  assert.equal(x.get("#btn-save-user").disabled, false);
+  x.input("#user-editor", "EDITABLE PREFERENCES");
+  await x.click("#btn-save-user");
+  assert.equal(writes, 1);
+  assert.equal((await readAllowed("user-md")).content, "EDITABLE PREFERENCES");
+});
+
+test("a failed initial preferences load stays protected and a later read can recover", async () => {
+  let fail = true;
+  const x = await ui(async (url, opts = {}) => {
+    if (fail && !opts.method && url.includes("kind=user-md")) throw new Error("temporary read failure");
+    return httpApi(url, opts);
+  });
+  await assert.rejects(x.context.loadUserMd(), /temporary read failure/);
+  assert.equal(x.state("userPending"), false);
+  assert.equal(x.get("#user-editor").disabled, true);
+  assert.equal(x.get("#btn-save-user").disabled, true);
+  fail = false;
+  await x.context.loadUserMd();
+  assert.equal(x.get("#user-editor").disabled, false);
+  assert.equal(x.get("#btn-save-user").disabled, false);
 });
 
 test("AH04: partial delivery message identifies failures rather than claiming everything synced", async () => {

@@ -4,6 +4,7 @@ import vm from "node:vm";
 import { test } from "node:test";
 import { i18nPrelude, i18nSandbox } from "./ui-vm.ts";
 
+const prelude = await i18nPrelude();
 const source = await fs.readFile(new URL("../../web/app.js", import.meta.url), "utf8");
 function fn(name: string) {
   const start = source.indexOf(`async function ${name}(`) >= 0 ? source.indexOf(`async function ${name}(`) : source.indexOf(`function ${name}(`);
@@ -77,7 +78,7 @@ test("session nav count includes own-only rows when the checkbox is on", () => {
     snap: { sessions: { count: 2, all: 3 }, skills: [], memory: { projects: [] }, vault: { status: "ready", count: 1 }, agents: [], conflicts: [], broken: [], unadopted: [] },
     $: (sel: string) => els[sel] ?? new Node(),
   }));
-  vm.runInContext(fn("fmtCount") + "\n" + fn("renderNav"), context);
+  vm.runInContext(prelude + fn("fmtCount") + "\n" + fn("renderNav"), context);
   context.renderNav();
   assert.equal(els["#nav-n-sessions"]!.textContent, "3");
   els["#session-own"]!.checked = false;

@@ -33,7 +33,11 @@ try {
   const headers = { 'x-hub-token': ready.token };
   const page = await fetch(origin + '/', { headers });
   assert.equal(page.status, 200); assert.match(await page.text(), /Agent Hub/);
-  assert.equal((await fetch(origin + '/app.js', { headers })).status, 200);
+  for (const asset of ['app.js', 'app.css', 'i18n.js', 'errors.js', 'vault-draft.js', 'quick-switcher.js']) {
+    const response = await fetch(origin + '/' + asset, { headers });
+    assert.equal(response.status, 200, `Packaged asset missing: ${asset}`);
+    assert.ok((await response.text()).length > 0, `Packaged asset empty: ${asset}`);
+  }
   const snapshotResponse = await fetch(origin + '/api/snapshot', { headers });
   assert.equal(snapshotResponse.status, 200);
   const snapshot = await snapshotResponse.json();

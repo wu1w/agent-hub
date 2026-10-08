@@ -155,4 +155,27 @@ describe("cached snapshot reads", () => {
       await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     }
   });
+
+  test("an explicit fresh snapshot sees external changes immediately while ordinary polling stays cached", async () => {
+    const server = await startServer(0);
+    try {
+      stopHubWatch();
+      const addr = server.address();
+      assert.ok(addr && typeof addr === "object");
+      const base = `http://127.0.0.1:${addr.port}`;
+      const headers = { "x-hub-token": (await fs.readFile(hubPaths().token, "utf8")).trim() };
+      const read = async (query = "") => await (await fetch(`${base}/api/snapshot${query}`, { headers })).json() as Snapshot;
+      const before = await read();
+      const dir = path.join(home, ".grok", "agents");
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(path.join(dir, "external.md"), "name: External addition\n");
+      assert.equal((await read()).metadataRevision, before.metadataRevision);
+      const fresh = await read("?fresh=1");
+      assert.ok(fresh.agents.find(agent => agent.id === "grok")?.subagents.some(sub => sub.name === "external"));
+      assert.notEqual(fresh.metadataRevision, before.metadataRevision);
+      assert.equal((await read()).metadataRevision, fresh.metadataRevision);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
+  });
 });

@@ -284,7 +284,7 @@ test("frontend targets save includes dirty body and revision, then updates the e
   const button = { disabled: false };
   let payload: Record<string, unknown> = {};
   const context = vm.createContext(i18nSandbox({
-    selectedSkill: "sample", skillBusy: false, skillRevision: "r1", skillDirty: true, snap: {},
+    selectedSkill: "sample", skillBusy: false, skillPending: false, skillRevision: "r1", skillDirty: true, snap: {},
     $: (selector: string) => selector === "#skill-editor" ? editor : button,
     api: async (_url: string, options: { body: string }) => { payload = JSON.parse(options.body); return { snapshot: {}, file: { content: "MERGED YAML AND BODY", revision: "r2" } }; },
     renderSkills() {}, renderSkillTargets() {}, banner() {}, notice() {},
@@ -323,8 +323,8 @@ test("frontend AGENTS save uses loaded workspace and new project uses create-onl
   const calls: { url: string; method: string; body: Record<string, unknown> }[] = [];
   const context = vm.createContext(i18nSandbox({
     $: element, $$: () => [], window: { addEventListener() {} },
-    loadedAgentsCwd: "/loaded/A", agentsRevision: "r1", selectedMemory: "global",
-    memoryBusy: false, memoryPending: false, memoryLoadEpoch: 0, updateMemoryControls() {},
+    projectFileBusy: false, loadedAgentsCwd: "/loaded/A", agentsRevision: "r1", selectedMemory: "global",
+    memoryBusy: false, memoryPending: false, memoryLoadEpoch: 0, updateMemoryControls() {}, updateUserControls() {},
     filterAgentCards() {}, banner() {}, notice() {}, refresh: async () => {}, openMemory: async () => {}, prompt: () => "new-project",
     api: async (url: string, options: { method: string; body: string }) => {
       calls.push({ url, method: options.method, body: JSON.parse(options.body) });

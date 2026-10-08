@@ -15,22 +15,20 @@
       <aside class="side">
         <div class="brand">
                     <img class="mark" src="/logo.png" width="28" height="28" alt="" />
-          <div><b>Agent Hub</b><small>CONTROL PLANE</small></div>
+          <div><b>Agent Hub</b><small data-i18n="brand.kicker">本机 Agent 工作台</small></div>
         </div>
         <button type="button" class="side-search" id="side-search"><span data-i18n="nav.search">聚焦本页搜索</span><kbd id="search-kbd">⌘K</kbd></button>
 
-        <button type="button" class="navb on" data-page="overview"><span class="ic">◎</span><span data-i18n="nav.overview">概览</span><span class="n" id="nav-n-overview"></span></button>
-
-        <p class="cap" data-i18n="nav.assets">资产</p>
-        <button type="button" class="navb" data-page="skills"><span class="ic">▤</span><span data-i18n="nav.skills">Skills</span><span class="n" id="nav-n-skills"></span></button>
-        <button type="button" class="navb" data-page="ctx"><span class="ic">▦</span><span data-i18n="nav.ctx">约定 Ctx</span></button>
-        <button type="button" class="navb" data-page="memory"><span class="ic">▧</span><span data-i18n="nav.memory">记忆</span><span class="n" id="nav-n-memory"></span></button>
-        <button type="button" class="navb" data-page="sessions"><span class="ic">≡</span><span data-i18n="nav.sessions">会话</span><span class="n" id="nav-n-sessions"></span></button>
-        <button type="button" class="navb" data-page="vault"><span class="ic">▣</span><span id="nav-vault-label" data-i18n="nav.vault">保险库</span><span class="n" id="nav-n-vault"></span></button>
-
-        <p class="cap" data-i18n="nav.delivery">投递</p>
-        <button type="button" class="navb" data-page="matrix"><span class="ic">⊞</span><span data-i18n="nav.matrix">绑定矩阵</span></button>
-        <button type="button" class="navb" data-page="agents"><span class="ic">⬡</span><span data-i18n="nav.agents">Agents</span><span class="n" id="nav-n-agents"></span></button>
+        <nav class="side-nav" aria-label="主导航" data-i18n-aria="nav.label">
+          <a href="#/overview" class="navb on" data-page="overview"><span class="ic" aria-hidden="true">◎</span><span data-i18n="nav.overview">概览</span><span class="n" id="nav-n-overview"></span></a>
+          <p class="cap" data-i18n="nav.assets">共享内容</p>
+          <a href="#/skills" class="navb" data-page="skills"><span class="ic" aria-hidden="true">▤</span><span data-i18n="nav.skills">技能</span><span class="n" id="nav-n-skills"></span></a>
+          <a href="#/memory" class="navb" data-page="memory"><span class="ic" aria-hidden="true">▧</span><span data-i18n="nav.knowledge">规则与记忆</span><span class="n" id="nav-n-memory"></span></a>
+          <a href="#/sessions" class="navb" data-page="sessions"><span class="ic" aria-hidden="true">≡</span><span data-i18n="nav.sessions">会话</span><span class="n" id="nav-n-sessions"></span></a>
+          <p class="cap" data-i18n="nav.delivery">连接与权限</p>
+          <a href="#/agents" class="navb" data-page="agents"><span class="ic" aria-hidden="true">⬡</span><span data-i18n="nav.agents">Agents</span><span class="n" id="nav-n-agents"></span></a>
+          <a href="#/vault" class="navb" data-page="vault"><span class="ic" aria-hidden="true">▣</span><span id="nav-vault-label" data-i18n="nav.vault">保险库</span><span class="n" id="nav-n-vault"></span></a>
+        </nav>
 
         <div class="side-foot">
           <div class="lang" role="group" aria-label="Language" data-i18n-aria="lang.label">
@@ -42,62 +40,58 @@
         </div>
       </aside>
 
-      <div class="main">
-        <p class="banner" id="banner" hidden></p>
+      <main class="main" id="main-content">
+        <div class="notice-bar"><p class="banner" id="banner" role="status" hidden></p><button type="button" id="dismiss-banner" class="notice-dismiss" hidden data-i18n-aria="common.dismiss" aria-label="关闭提示">×</button></div>
         <p class="banner" id="agent-draft-status" role="status" hidden></p>
         <div class="banner" id="snapshot-warnings" role="status" hidden></div>
 
-        <!-- ================= 概览 ================= -->
-        <section id="page-overview">
+        <!-- ================= overview ================= -->
+        <section id="page-overview" aria-labelledby="overview-title">
           <div class="pagehead">
-            <div>
-              <p class="eyebrow" data-i18n="overview.eyebrow">Overview</p>
-              <h1 data-i18n="overview.h1">概览</h1>
-              <p class="sub" id="ov-sub">一份资产，投递到全部 Agent</p>
-            </div>
-            <div class="acts"><button type="button" class="btn" id="btn-scan-all" data-i18n="overview.scanAll">扫描全部</button></div>
+            <div><h1 id="overview-title" data-i18n="overview.h1">概览</h1><p class="sub" id="ov-sub" data-i18n="overview.intro">在这里查看同步状态，管理所有 Agent 的共享内容。</p></div>
+            <div class="acts"><button type="button" class="btn" id="btn-scan-all" data-i18n="overview.scanAll">刷新状态</button></div>
           </div>
-
-          <div class="todo-cards">
-            <div class="todo-card r" id="ov-card-conflicts">
-              <div class="k" data-i18n="overview.conflicts">冲突</div><div class="v" id="ov-n-conflicts">0</div>
-              <p id="ov-p-conflicts">同名 skill 存在多个来源</p>
-              <button type="button" class="act" id="ov-act-conflicts" data-i18n="overview.conflictsAct">去解决 →</button>
-            </div>
-            <div class="todo-card y" id="ov-card-broken">
-              <div class="k" data-i18n="overview.broken">断链</div><div class="v" id="ov-n-broken">0</div>
-              <p id="ov-p-broken">失效的软链还挂在 Agent 目录</p>
-              <button type="button" class="act" id="ov-act-broken" data-i18n="overview.brokenAct">一键修复 →</button>
-            </div>
-            <div class="todo-card b" id="ov-card-unadopted">
-              <div class="k" data-i18n="overview.unadopted">未收编</div><div class="v" id="ov-n-unadopted">0</div>
-              <p id="ov-p-unadopted">用户 skill 还散在各家目录</p>
-              <button type="button" class="act" id="ov-act-unadopted" data-i18n="overview.unadoptedAct">去收编 →</button>
+          <div class="panel sync-panel" id="ov-sync-panel">
+            <div class="sync-heading"><span class="status-orbit" aria-hidden="true"></span><div><h2 id="ov-health-title" data-i18n="overview.syncPending">等待首次检查</h2><p id="ov-health-detail" class="hint"></p></div><a href="#/agents" data-route="agents" class="text-link" data-i18n="overview.manageAgents">管理连接 →</a></div>
+            <div class="sync-streams">
+              <div><span class="stream-name" data-i18n="overview.assetLabel">技能与记忆</span><p id="ov-asset-sync"></p></div>
+              <div><span class="stream-name" data-i18n="overview.sessionLabel">会话目录</span><p id="ov-session-sync"></p></div>
             </div>
           </div>
-
-          <div class="stats">
-            <div class="stat"><div class="k" data-i18n="overview.statSkills">Skills</div><div class="v" id="ov-stat-skills">0</div><div class="s" id="ov-stat-skills-s"></div></div>
-            <div class="stat"><div class="k" data-i18n="overview.statAgents">Agents</div><div class="v" id="ov-stat-agents">0</div><div class="s" id="ov-stat-agents-s"></div></div>
-            <div class="stat"><div class="k" data-i18n="overview.statSessions">会话索引</div><div class="v" id="ov-stat-sessions">0</div><div class="s" data-i18n="overview.statSessionsHint">原文留在各家目录</div></div>
-            <div class="stat"><div class="k" data-i18n="overview.statVault">保险库</div><div class="v" id="ov-stat-vault">0</div><div class="s" id="ov-stat-vault-s">磁盘只有密文</div></div>
+          <div class="overview-grid">
+            <div class="panel overview-library">
+              <div class="panel-h"><h2 data-i18n="overview.library">我的工作台</h2></div>
+              <div class="stats">
+                <a class="stat" href="#/skills" data-route="skills"><span class="k" data-i18n="overview.statSkills">技能</span><strong class="v" id="ov-stat-skills">—</strong><span class="s" id="ov-stat-skills-s"></span></a>
+                <a class="stat" href="#/agents" data-route="agents"><span class="k" data-i18n="overview.statAgents">已发现的 Agent</span><strong class="v" id="ov-stat-agents">—</strong><span class="s" id="ov-stat-agents-s"></span></a>
+                <a class="stat" href="#/sessions" data-route="sessions"><span class="k" data-i18n="overview.statSessions">会话</span><strong class="v" id="ov-stat-sessions">—</strong><span class="s" data-i18n="overview.statSessionsHint">搜索记录，继续协作</span></a>
+                <a class="stat" href="#/vault" data-route="vault"><span class="k" data-i18n="overview.statVault">保险库</span><strong class="v" id="ov-stat-vault">—</strong><span class="s" id="ov-stat-vault-s"></span></a>
+              </div>
+            </div>
+            <div class="panel attention-panel">
+              <div class="panel-h"><h2 data-i18n="overview.attention">需要留意</h2><span class="hint" id="ov-attention-count"></span></div>
+              <div class="attention-empty" id="ov-no-issues" hidden><strong data-i18n="overview.noIssues">目前没有需要处理的问题</strong><span data-i18n="overview.noIssuesHint">共享内容会在后台自动同步。</span></div>
+              <div class="todo-cards">
+                <div class="todo-card r" id="ov-card-conflicts" hidden><div><strong class="k" data-i18n="overview.conflicts">同名技能冲突</strong><span class="v" id="ov-n-conflicts">0</span><p id="ov-p-conflicts"></p></div><button type="button" class="btn sm" id="ov-act-conflicts" data-i18n="overview.conflictsAct">查看冲突</button></div>
+                <div class="todo-card y" id="ov-card-broken" hidden><div><strong class="k" data-i18n="overview.broken">技能连接失效</strong><span class="v" id="ov-n-broken">0</span><p id="ov-p-broken"></p></div><button type="button" class="btn sm" id="ov-act-broken" data-i18n="overview.brokenAct">修复连接</button></div>
+              </div>
+              <div id="ov-warnings-panel" hidden><ul class="warn-list" id="ov-warnings-list"></ul></div>
+            </div>
           </div>
-
-          <div class="panel">
-            <div class="panel-h"><h2 data-i18n="overview.barsTitle">各层投递情况</h2><span class="hint" data-i18n="overview.barsHint">多少 Agent 该层听 Hub</span></div>
-            <div class="bars" id="ov-bars"></div>
-          </div>
-
-          <div class="panel" id="ov-sync-panel" style="margin-top:14px">
-            <h2 data-i18n="overview.sync">后台同步</h2>
-            <p class="meta" id="ov-asset-sync"></p>
-            <p class="meta" id="ov-session-sync"></p>
-          </div>
-          <div class="panel" id="ov-warnings-panel" style="margin-top:14px" hidden>
-            <div class="panel-h"><h2 data-i18n="overview.warnTitle">Snapshot 警告</h2></div>
-            <ul class="warn-list" id="ov-warnings-list"></ul>
-          </div>
+          <div class="panel import-suggestion" id="ov-card-unadopted" hidden><div><strong data-i18n="overview.unadopted">可导入的技能</strong><span class="count-badge" id="ov-n-unadopted"></span><p id="ov-p-unadopted"></p></div><button type="button" class="btn" id="ov-act-unadopted" data-i18n="overview.unadoptedAct">选择导入</button></div>
+          <div class="panel delivery-summary"><div class="panel-h"><h2 data-i18n="overview.barsTitle">共享内容的连接范围</h2><a class="text-link" href="#/matrix" data-route="matrix" data-i18n="overview.configure">调整连接 →</a></div><p class="hint delivery-hint" data-i18n="overview.barsHint">已发现的客户端中，由 Hub 管理的内容。</p><div class="bars" id="ov-bars"></div></div>
         </section>
+
+        <div id="knowledge-head" class="workspace-head hidden">
+          <div class="pagehead"><div><h1 data-i18n="nav.knowledge">规则与记忆</h1><p class="sub" data-i18n="knowledge.sub">统一维护长期记忆、使用偏好和项目规范。</p></div></div>
+          <nav class="workspace-tabs" aria-label="内容类型" data-i18n-aria="knowledge.tabs"><a href="#/memory" data-route="memory" data-i18n="knowledge.memory">共享记忆</a><a href="#/ctx" data-route="ctx" data-i18n="knowledge.ctx">偏好与项目规范</a></nav>
+        </div>
+        <div id="agent-head" class="workspace-head hidden">
+          <div class="pagehead"><div><h1 data-i18n="agents.h1">Agents</h1><p class="sub" data-i18n="agents.sub">选择每个 Agent 使用的共享内容，查看连接详情。</p></div></div>
+          <div class="agent-toolbar"><nav class="workspace-tabs" aria-label="视图" data-i18n-aria="agents.views"><a href="#/agents" data-route="agents" id="btn-matrix-agents" data-i18n="agents.cardsView">按 Agent</a><a href="#/matrix" data-route="matrix" data-i18n="agents.tableView">连接总表</a></nav></div>
+          <div class="filterbar"><label class="field-search"><span class="sr" data-i18n="agents.filter">搜索 Agent</span><input id="agent-filter" type="search" placeholder="搜索名称或 ID" data-i18n-placeholder="agents.filter" /></label><label class="inline"><input id="agent-installed" type="checkbox" /><span data-i18n="agents.installedOnly">仅显示已发现</span></label><span class="cnt" id="agent-filter-count" role="status"></span></div>
+          <div class="empty agent-empty" id="agent-empty" hidden><p data-i18n="agents.noMatch">没有匹配的 Agent</p><button type="button" class="btn" id="btn-reset-agent-filter" data-i18n="agents.resetFilter">清除筛选</button></div>
+        </div>
 
         <!-- ================= Skills ================= -->
         <section id="page-skills" class="hidden">
@@ -107,17 +101,12 @@
               <h1 data-i18n="skills.h1">Skills</h1>
               <p class="sub" data-i18n="skills.sub">用户可改的 skill 只在 Hub 存一份，选 Hub 的 Agent 用软链接入；厂商目录不收编</p>
             </div>
-            <div class="acts">
-              <button type="button" class="btn" id="btn-onboard" data-i18n="skills.onboard">首次配置向导</button>
-              <button type="button" class="btn" id="btn-scan" data-i18n="skills.scan">扫描</button>
-              <button type="button" class="btn" id="btn-repair" data-i18n="skills.repair">修复断链</button>
-              <button type="button" class="btn pri" id="btn-adopt" data-i18n="skills.adopt">收编到 Hub</button>
-            </div>
+            <div class="acts"><button type="button" class="btn pri" id="btn-onboard" data-i18n="skills.onboard">导入技能</button><button type="button" class="btn" id="btn-scan" data-i18n="skills.scan">刷新</button><details class="more-menu"><summary class="btn" data-i18n="common.more">更多操作</summary><div class="more-menu-body"><button type="button" class="btn" id="btn-repair" data-i18n="skills.repair">修复失效连接</button><button type="button" class="btn" id="btn-adopt" data-i18n="skills.adopt">批量导入设置</button></div></details></div>
           </div>
           <div class="chips" id="skill-chips"></div>
           <div class="split">
             <div class="panel pad">
-              <input class="search" id="skill-q" type="search" placeholder="搜索 skill…" data-i18n-placeholder="skills.search" />
+              <label class="field-label" for="skill-q" data-i18n="skills.searchLabel">技能目录</label><input class="search" id="skill-q" type="search" placeholder="搜索 skill…" data-i18n-placeholder="skills.search" />
               <div id="skill-rows"></div>
 
               <details class="d" id="d-conflicts">
@@ -128,21 +117,13 @@
                 <summary><span data-i18n="skills.broken">断链</span><span class="c" id="d-n-broken"></span></summary>
                 <ul id="skill-broken" class="plain"></ul>
               </details>
-              <details class="d" id="d-unadopted">
-                <summary><span data-i18n="skills.unadopted">尚未收编</span><span class="c" id="d-n-unadopted"></span></summary>
-                <ul id="unadopted" class="plain"></ul>
-              </details>
               <details class="d">
                 <summary data-i18n="skills.project">项目 skill</summary>
                 <div class="row-actions" style="margin:8px 0">
-                  <input id="project-cwd" type="text" placeholder="仓库绝对路径" data-i18n-placeholder="skills.projectCwd" style="flex:1;min-width:0" />
+                  <input id="project-cwd" data-i18n-aria="skills.projectCwd" type="text" placeholder="仓库绝对路径" data-i18n-placeholder="skills.projectCwd" style="flex:1;min-width:0" />
                   <button type="button" class="btn sm" id="btn-scan-project" data-i18n="skills.scanProject">扫描</button>
                 </div>
                 <ul id="project-skills" class="plain"></ul>
-              </details>
-              <details class="d">
-                <summary data-i18n="skills.vendor">厂商 skill</summary>
-                <ul id="vendor" class="plain"></ul>
               </details>
             </div>
             <div class="panel pad" style="display:flex;flex-direction:column">
@@ -151,15 +132,17 @@
                 <button type="button" class="btn" id="btn-open-skill" disabled data-i18n="skills.openExt">外部打开</button>
               </div>
               <p class="meta"><span class="path" id="skill-meta">从左侧选择一份 skill。</span></p>
+              <details class="skill-distribution"><summary data-i18n="skills.targetHeading">分发范围</summary>
               <div class="targets" id="skill-targets" hidden></div>
               <p class="hint" id="skill-targets-hint" hidden data-i18n="skills.targetsHint">调整挂载范围会同时保存当前正文草稿。</p>
-              <textarea id="skill-editor" spellcheck="false" disabled placeholder="选择左侧 skill 后在此编辑" data-i18n-placeholder="skills.editorPh"></textarea>
+              </details>
+              <textarea id="skill-editor" data-i18n-aria="skills.content" spellcheck="false" disabled placeholder="选择左侧 skill 后在此编辑" data-i18n-placeholder="skills.editorPh"></textarea>
               <div class="editor-foot">
                 <button type="button" class="btn" id="btn-preview-skill" data-preview="skill-editor" disabled data-i18n="skills.preview">预览</button>
                 <button type="button" class="btn danger" id="btn-delete-skill" disabled data-i18n="skills.delete">删除</button>
                 <span class="spacer"></span>
                 <span class="saved" id="skill-saved"></span>
-                <button type="button" class="btn pri" id="btn-save-skill" disabled data-i18n="skills.save">保存</button>
+                <button type="button" class="btn pri" id="btn-save-skill" disabled data-i18n="skills.saveSync">保存</button>
               </div>
             </div>
           </div>
@@ -167,31 +150,24 @@
 
         <!-- ================= 约定 Ctx ================= -->
         <section id="page-ctx" class="hidden">
-          <div class="pagehead">
-            <div>
-              <p class="eyebrow" data-i18n="ctx.eyebrow">Assets / Ctx</p>
-              <h1 data-i18n="ctx.h1">约定</h1>
-              <p class="sub" data-i18n="ctx.sub">USER.md 描述使用者，不覆盖各 Agent 的 Identity；项目 AGENTS.md 始终在仓库里，Hub 不复制</p>
-            </div>
-          </div>
+          <p class="workspace-description" data-i18n="ctx.sub"></p>
           <div class="split">
             <div class="panel pad">
               <p class="cap" data-i18n="ctx.srcTitle">来源</p>
               <ul class="list-plain">
-                <li id="ctx-src-user" class="is-sel"><b>USER.md</b><span class="s" data-i18n="ctx.userSrcSub">全局来源</span></li>
+                <li><button type="button" id="ctx-src-user" class="source-item is-sel"><b data-i18n="knowledge.preferences">使用偏好</b><span class="s">USER.md</span></button></li>
               </ul>
-              <p class="cap" data-i18n="ctx.agentViews">各 Agent 视角</p>
-              <ul class="list-plain" id="ctx-agent-list"></ul>
+              <details class="d delivery-views"><summary data-i18n="knowledge.deliveryViews">查看 Agent 收到的内容</summary><ul class="list-plain" id="ctx-agent-list"></ul></details>
               <p class="cap" data-i18n="ctx.projectTitle">项目</p>
               <ul class="list-plain">
-                <li id="ctx-src-project"><b>AGENTS.md</b><span class="s" data-i18n="ctx.projectSrcSub">仓库内文件</span></li>
+                <li><button type="button" id="ctx-src-project" class="source-item"><b data-i18n="knowledge.projectRules">项目规范</b><span class="s">AGENTS.md</span></button></li>
               </ul>
             </div>
             <div class="panel pad" style="display:flex;flex-direction:column">
               <div id="ctx-view-user" style="display:flex;flex-direction:column;flex:1;min-height:0">
-                <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2>USER.md</h2></div>
+                <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2 data-i18n="knowledge.preferences">使用偏好</h2></div>
                 <p class="meta"><span class="path" id="user-path"></span></p>
-                <textarea id="user-editor" spellcheck="false"></textarea>
+                <textarea id="user-editor" data-i18n-aria="knowledge.preferences" spellcheck="false"></textarea>
                 <div class="editor-foot">
                   <button type="button" class="btn" data-preview="user-editor" data-i18n="skills.preview">预览</button>
                   <button type="button" class="btn" id="btn-open-user" data-i18n="skills.openExt">外部打开</button>
@@ -203,22 +179,22 @@
                 <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2 data-i18n="ctx.agentsHeading">项目 AGENTS.md</h2></div>
                 <p class="meta" data-i18n="ctx.agentsHint">填仓库绝对路径后打开，编辑会直接写回仓库；还没有 AGENTS.md 时保存会新建。</p>
                 <div class="row-actions" style="margin-bottom:10px">
-                  <input id="agents-cwd" type="text" placeholder="/Users/…/repo" style="flex:1;min-width:0" />
+                  <input id="agents-cwd" data-i18n-aria="skills.projectCwd" type="text" placeholder="/Users/…/repo" style="flex:1;min-width:0" />
                   <button type="button" class="btn" id="btn-open-agents" data-i18n="ctx.open">打开</button>
                 </div>
                 <p class="meta"><span class="path" id="agents-path"></span></p>
-                <textarea id="agents-editor" spellcheck="false" placeholder="打开仓库后在此编辑 AGENTS.md" data-i18n-placeholder="ctx.agentsPh"></textarea>
+                <textarea id="agents-editor" data-i18n-aria="knowledge.projectRules" spellcheck="false" placeholder="打开仓库后在此编辑 AGENTS.md" data-i18n-placeholder="ctx.agentsPh"></textarea>
                 <div class="editor-foot">
                   <button type="button" class="btn" data-preview="agents-editor" data-i18n="skills.preview">预览</button>
                   <span class="spacer"></span>
-                  <button type="button" class="btn pri" id="btn-save-agents" data-i18n="ctx.saveRepo">保存仓库文件</button>
+                  <button type="button" class="btn pri" id="btn-save-agents" disabled data-i18n="ctx.saveRepo">保存仓库文件</button>
                 </div>
               </div>
               <div id="ctx-view-agent" class="hidden" style="flex-direction:column;flex:1;min-height:0">
                 <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2 id="ctx-a-name"></h2><span class="bind-badge" id="ctx-a-bind"></span></div>
                 <p class="hint" id="ctx-a-note"></p>
                 <p class="meta"><span class="path" id="ctx-a-path"></span></p>
-                <textarea id="ctx-a-content" spellcheck="false" readonly></textarea>
+                <textarea id="ctx-a-content" data-i18n-aria="knowledge.receivedContent" spellcheck="false" readonly></textarea>
                 <div class="editor-foot">
                   <button type="button" class="btn" data-preview="ctx-a-content" data-i18n="skills.preview">预览</button>
                 </div>
@@ -229,30 +205,21 @@
 
         <!-- ================= 记忆 ================= -->
         <section id="page-memory" class="hidden">
-          <div class="pagehead">
-            <div>
-              <p class="eyebrow" data-i18n="memory.eyebrow">Assets / Memory</p>
-              <h1 data-i18n="memory.h1">记忆</h1>
-              <p class="sub" data-i18n="memory.sub">只在 Hub 改。全局入口在新会话加载；Cursor / grok-hyper 请先设置工作区，项目记忆填 * 可只加载全局记忆</p>
-            </div>
-            <div class="acts">
-              <button type="button" class="btn" id="btn-import-memory" data-i18n="memory.import">导入原生记忆</button>
-              <button type="button" class="btn" id="btn-sync-memory" data-i18n="memory.sync">重新同步加载入口</button>
-              <button type="button" class="btn" id="btn-memory-scope" data-i18n="memory.scope">设置工作区记忆</button>
-              <button type="button" class="btn pri" id="btn-new-project" data-i18n="memory.newProject">新建项目</button>
-            </div>
-          </div>
+          <div class="page-tools"><p class="workspace-description" data-i18n="memory.sub"></p><div class="acts">
+            <button type="button" class="btn pri" id="btn-new-project" data-i18n="memory.newProject">新建项目记忆</button>
+            <button type="button" class="btn" id="btn-memory-scope" data-i18n="memory.scope">设置使用范围</button>
+            <details class="more-menu"><summary class="btn" data-i18n="common.more">更多操作</summary><div class="more-menu-body"><button type="button" class="btn" id="btn-import-memory" data-i18n="memory.import">导入原生记忆</button><button type="button" class="btn" id="btn-sync-memory" data-i18n="memory.sync">同步所有记忆</button></div></details>
+          </div></div>
           <div class="split">
             <div class="panel pad">
               <p class="cap" data-i18n="memory.srcTitle">来源</p>
               <ul class="list-plain" id="memory-list"></ul>
               <div style="margin-top:14px">
-                <p class="meta" data-i18n="memory.append">追加一条</p>
+                <label for="remember-text" class="field-label" data-i18n="memory.append">追加一条</label>
                 <textarea id="remember-text" class="short" spellcheck="false" placeholder="一条长期记忆" data-i18n-placeholder="memory.appendPh"></textarea>
                 <div style="margin-top:8px"><button type="button" class="btn pri" id="btn-remember" data-i18n="memory.write">写入</button></div>
               </div>
-              <p class="cap" data-i18n="memory.agentViews">各 Agent 视角</p>
-              <ul class="list-plain" id="memory-agent-list"></ul>
+              <details class="d delivery-views"><summary data-i18n="knowledge.deliveryViews">查看 Agent 收到的内容</summary><ul class="list-plain" id="memory-agent-list"></ul></details>
             </div>
             <div class="panel pad" style="display:flex;flex-direction:column">
               <div id="mem-view-source" style="display:flex;flex-direction:column;flex:1;min-height:0">
@@ -261,7 +228,7 @@
                   <button type="button" class="btn" id="btn-open-memory" data-i18n="skills.openExt">外部打开</button>
                 </div>
                 <p class="meta"><span class="path" id="memory-path"></span></p>
-                <textarea id="memory-editor" spellcheck="false"></textarea>
+                <textarea id="memory-editor" data-i18n-aria="knowledge.memory" spellcheck="false"></textarea>
                 <details id="memory-conflict" class="memory-conflict" hidden open>
                   <summary data-i18n="memory.conflictTitle">文件冲突：本地草稿已保留</summary>
                   <p class="hint" data-i18n="memory.conflictHelp">下面是最新磁盘版本。请将需要的内容合并到上方草稿，再保存合并结果。</p>
@@ -283,7 +250,7 @@
                 <p class="hint" id="mem-a-note"></p>
                 <p class="meta"><span data-i18n="memory.injectPath">注入路径</span> <span class="path" id="mem-a-path"></span></p>
                 <ul class="plain" id="mem-a-loading" style="margin:0 0 10px"></ul>
-                <textarea id="mem-a-content" spellcheck="false" readonly></textarea>
+                <textarea id="mem-a-content" data-i18n-aria="knowledge.receivedContent" spellcheck="false" readonly></textarea>
                 <div class="editor-foot">
                   <button type="button" class="btn" data-preview="mem-a-content" data-i18n="skills.preview">预览</button>
                   <span class="spacer"></span>
@@ -306,19 +273,19 @@
           </div>
           <div class="split">
             <div class="panel sessions-panel">
-              <div class="pad" style="border-bottom:1px solid var(--line-soft);display:flex;gap:10px;align-items:center">
-                <input class="search" id="session-q" style="margin:0" type="search" placeholder="搜标题 / cwd / id" data-i18n-placeholder="sessions.search" />
+              <div class="pad session-filters">
+                <label class="sr" for="session-q" data-i18n="sessions.search">搜索会话</label><input class="search" id="session-q" style="margin:0" type="search" placeholder="搜标题 / cwd / id" data-i18n-placeholder="sessions.search" />
                 <label class="inline"><input id="session-own" type="checkbox" /> <span data-i18n="sessions.showOwn">显示仅本 Agent</span></label>
               </div>
               <div class="table-wrap">
                 <table class="data sessions-table">
-                  <colgroup><col style="width:76px" /><col /><col style="width:28%" /><col style="width:160px" /></colgroup>
-                  <thead><tr><th data-i18n="sessions.colSource">来源</th><th data-i18n="sessions.colTitle">标题 / 摘要</th><th data-i18n="sessions.colCwd">cwd</th><th data-i18n="sessions.colUpdated">更新</th></tr></thead>
+                  <colgroup><col /><col style="width:104px" /></colgroup>
+                  <thead><tr><th data-i18n="sessions.colTitle">会话 / 项目</th><th data-i18n="sessions.colUpdated">更新</th></tr></thead>
                   <tbody id="session-rows"></tbody>
                 </table>
               </div>
             </div>
-            <div class="panel pad" style="display:flex;flex-direction:column">
+            <div class="panel pad session-detail">
               <div class="tabs">
                 <button type="button" class="tab on" id="tab-sess-content" data-i18n="sessions.tabContent">内容</button>
                 <button type="button" class="tab" id="tab-sess-handoff" data-i18n="sessions.tabHandoff">交接</button>
@@ -363,36 +330,22 @@
           <div class="split">
             <div class="panel pad">
               <p class="meta"><span class="path" id="vault-path"></span></p>
-              <input class="search" id="vault-q" type="search" placeholder="按 id 或说明检索" data-i18n-placeholder="vault.search" />
+              <label class="field-label" for="vault-q" data-i18n="vault.searchLabel">密钥条目</label><input class="search" id="vault-q" type="search" placeholder="按 id 或说明检索" data-i18n-placeholder="vault.search" />
               <ul id="vault-entries" class="plain"></ul>
             </div>
             <div class="panel pad" style="display:flex;flex-direction:column">
-              <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2>Markdown</h2></div>
-              <p class="meta" data-i18n="vault.mdHint">不要导出明文。预览默认关。失焦后重新掩码。</p>
-              <textarea id="vault-editor" spellcheck="false"></textarea>
+              <div class="panel-h" style="padding:0 0 12px;border-bottom:0"><h2 data-i18n="vault.editorTitle">密钥编辑器</h2></div>
+              <p class="meta" data-i18n="vault.mdHint">密钥会在离开编辑器后自动隐藏。</p><details class="d vault-help"><summary data-i18n="vault.formatHelp">如何添加密钥</summary><p class="hint" data-i18n="vault.formatHint"></p><pre data-i18n="vault.formatExample">## example-service
+api_key: YOUR_API_KEY
+note: Service description</pre></details>
+              <textarea id="vault-editor" data-i18n-aria="vault.editorTitle" spellcheck="false"></textarea>
             </div>
           </div>
         </section>
 
         <!-- ================= 绑定矩阵 ================= -->
         <section id="page-matrix" class="hidden">
-          <div class="pagehead">
-            <div>
-              <p class="eyebrow" data-i18n="matrix.eyebrow">Delivery / Matrix</p>
-              <h1 data-i18n="matrix.h1">绑定矩阵</h1>
-              <p class="sub" data-i18n="matrix.sub">每个 Agent 的每一层听 Hub 还是听自己，点 pill 轮换；人设永远是各家自己的文件</p>
-            </div>
-            <div class="acts"><button type="button" class="btn" id="btn-matrix-agents" data-i18n="matrix.toAgents">按 Agent 卡片查看 →</button></div>
-          </div>
-          <div class="matrix-tools">
-            <div class="legend">
-              <span><i style="background:var(--acc)"></i><span data-i18n="matrix.legHub">Hub — 听 Hub 的</span></span>
-              <span><i style="background:var(--ok)"></i><span data-i18n="matrix.legIndex">索引 — 会话列入总目录</span></span>
-              <span><i style="background:#c9cdd5"></i><span data-i18n="matrix.legOwn">Own — 听自己的</span></span>
-              <span><i style="background:transparent;border:1px solid var(--line)"></i><span data-i18n="matrix.legOff">关 — 不投递</span></span>
-              <span><i style="background:transparent;color:#c9cdd5">·</i><span data-i18n="matrix.legNa">该层不适用</span></span>
-            </div>
-          </div>
+          <p class="workspace-description" data-i18n="matrix.sub"></p>
           <div class="panel matrix-wrap">
             <table class="matrix" id="matrix"></table>
           </div>
@@ -400,24 +353,12 @@
 
         <!-- ================= Agents ================= -->
         <section id="page-agents" class="hidden">
-          <div class="pagehead">
-            <div>
-              <p class="eyebrow" data-i18n="agents.eyebrow">Delivery / Agents</p>
-              <h1 data-i18n="agents.h1">Agents</h1>
-              <p class="sub" data-i18n="agents.sub">逐个点开调整，或去绑定矩阵一页改完全部。人设永远是该 Agent 自己的文件</p>
-            </div>
-          </div>
-          <div class="filterbar">
-            <input id="agent-filter" type="search" placeholder="筛选 Agent：名称或 ID" data-i18n-placeholder="agents.filter" />
-            <label class="inline"><input id="agent-installed" type="checkbox" /> <span data-i18n="agents.installedOnly">仅已发现客户端证据</span></label>
-            <span class="cnt" id="agent-filter-count" role="status"></span>
-          </div>
           <div class="cards" id="agent-cards"></div>
-          <div id="agent-catalog" class="catalog"></div>
+          <details class="d catalog-disclosure"><summary data-i18n="agents.catalog">添加其他 Agent</summary><div id="agent-catalog" class="catalog"></div></details>
         </section>
 
-        <footer class="foot" data-i18n="foot">AGENT HUB · 本机控制面 · 数据来自 ~/.agent-hub 实时扫描</footer>
-      </div>
+        <footer class="foot" data-i18n="foot">Agent Hub · 本机工作台</footer>
+      </main>
     </div>
 
     <dialog id="confirm">
@@ -444,7 +385,7 @@
 
     <dialog id="text-prompt">
       <form id="text-prompt-form">
-        <p id="text-prompt-title"></p>
+        <label id="text-prompt-title" for="text-prompt-input"></label>
         <input id="text-prompt-input" type="text" autocomplete="off" />
         <p class="banner" id="text-prompt-err" hidden></p>
         <menu>
@@ -457,13 +398,14 @@
     <dialog id="scope-dialog">
       <form id="scope-form">
         <p data-i18n="memory.scope">设置工作区记忆</p>
-        <label class="dlg-field"><span data-i18n="memory.scopeAgent">Agent</span><select id="scope-agent"></select></label>
+        <label class="dlg-field"><span data-i18n="memory.scopeAgent">Agent</span><select id="scope-agent" data-i18n-aria="memory.scopeAgent"></select></label>
         <label class="dlg-field"><span data-i18n="memory.scopeCwd">工作区绝对路径</span><input id="scope-cwd" type="text" autocomplete="off" placeholder="/Users/…/repo" /></label>
-        <label class="dlg-field"><span data-i18n="memory.scopeProject">项目记忆 ID（填 * 只加载全局记忆；留空解除工作区）</span><input id="scope-project" type="text" autocomplete="off" /></label>
+        <label class="dlg-field"><span data-i18n="memory.scopeMode">在这个工作区使用</span><select id="scope-mode" data-i18n-aria="memory.scopeMode"><option value="global" data-i18n="memory.scopeGlobal">仅全局记忆</option><option value="project" data-i18n="memory.scopeWithProject">全局 + 项目记忆</option><option value="remove" data-i18n="memory.scopeRemove">解除这个工作区的连接</option></select></label>
+        <label class="dlg-field" id="scope-project-field" hidden><span data-i18n="memory.scopeProject">项目记忆</span><select id="scope-project" data-i18n-aria="memory.scopeProject"></select></label><p id="scope-remove-hint" class="hint" data-i18n="memory.scopeRemoveHint" hidden></p>
         <p class="banner" id="scope-err" hidden></p>
         <menu>
           <button type="button" class="btn" id="scope-cancel" data-i18n="dialog.cancel">取消</button>
-          <button type="submit" class="btn pri" id="scope-ok" data-i18n="dialog.ok">确定</button>
+          <button type="submit" class="btn pri" id="scope-ok" data-i18n="memory.scopeSave">确定</button>
         </menu>
       </form>
     </dialog>

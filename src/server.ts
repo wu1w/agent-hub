@@ -175,7 +175,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
   }
 
   if (method === "GET" && url.pathname === "/api/snapshot") {
-    send(req, res, 200, await buildCachedSnapshot(), cookie);
+    send(req, res, 200, await (url.searchParams.get("fresh") === "1" ? buildSnapshot() : buildCachedSnapshot()), cookie);
     return;
   }
   if (method === "POST" && url.pathname === "/api/adopt") {

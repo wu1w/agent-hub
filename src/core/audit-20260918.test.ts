@@ -100,6 +100,8 @@ test("openSkill drops a stale response after a newer click", async () => {
   };
   const context = vm.createContext(i18nSandbox({
     skillBusy: false,
+    skillPending: false,
+    skillEditEpoch: 0,
     skillDirty: false,
     skillLoadEpoch: 0,
     selectedSkill: null,
@@ -112,6 +114,7 @@ test("openSkill drops a stale response after a newer click", async () => {
     },
     renderSkills() {},
     renderSkillTargets() {},
+    updateSkillControls() {},
     renderMarkdown: () => "",
   }));
   vm.runInContext(await i18nPrelude() + "\n" + fn, context);

@@ -50,7 +50,7 @@ test("Ctx render disables only disallowed Hub options with an actionable reason"
   }
   const root = new Node();
   const agents = [["grok", null], ["cursor", "/test/rule"], ["hyper", "/test/USER.md"]].map(([id, userMdProjection]) => ({id,label:id,userMdProjection,present:true,bind:{ctx:"own",memory:"own",sessions:"own",vault:"off"}}));
-  const context = vm.createContext(i18nSandbox({ snap: { agents, config: { layers: { ctx: { global_targets: ["hyper"] } } }, vault: {entries:[]} }, LAYER_META: {ctx:{label:"Ctx",labelKey:"layer.ctx",options:[["hub","opt.hub"],["own","opt.own"]]}}, document:{createElement:()=>new Node()}, $:()=>root, esc:(s: string)=>s, apiErrorText:(s: string)=>s, loadIdentity:async()=>{}, wirePreview(){}, renderSubagents(){}, filterAgentCards(){}, renderCatalog(){}, renderSnapshotWarnings(){}, onBind(){}, banner(){}, notice(){} }));
+  const context = vm.createContext(i18nSandbox({ snap: { agents, config: { layers: { ctx: { global_targets: ["hyper"] } } }, vault: {entries:[]} }, LAYER_META: {ctx:{label:"Ctx",labelKey:"layer.ctx",options:[["hub","opt.hub"],["own","opt.own"]]}}, document:{createElement:()=>new Node()}, $:()=>root, esc:(s: string)=>s, apiErrorText:(s: string)=>s, loadIdentity:async()=>{}, setupAgentIdentity(){}, draftIdentityFromUser(){}, openMemAgent(){}, openCtxAgent(){}, wirePreview(){}, renderSubagents(){}, filterAgentCards(){}, renderCatalog(){}, renderSnapshotWarnings(){}, onBind(){}, banner(){}, notice(){} }));
   vm.runInContext(prelude + helpers + "\n" + fn("renderAgents"), context); context.renderAgents();
   root.children.forEach((card, i) => {
     const select = card.querySelector(".bind").children[1]!;

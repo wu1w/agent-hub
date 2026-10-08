@@ -15,6 +15,7 @@ export function i18nSandbox(extra: Record<string, unknown> = {}): Record<string,
   return {
     localStorage: { getItem: () => "zh", setItem() {}, removeItem() {} },
     navigator: { language: "zh-CN" },
+    document: { addEventListener() {} },
     ...extra,
   };
 }

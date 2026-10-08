@@ -1,6 +1,6 @@
 {
   "name": "agent-hub",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "本机多 Agent 资产控制面",
@@ -14,7 +14,7 @@
     "test:mutation": "stryker run && node scripts/mutation-by-file.mjs && stryker run stryker.server.json",
     "test:mutation:dry": "stryker run --dryRunOnly && stryker run stryker.server.json --dryRunOnly",
     "typecheck": "tsc --noEmit",
-    "check:web": "node --check web/app.js && node --check web/i18n.js && node --check web/errors.js && node --check web/vault-draft.js && node scripts/check-error-pairs.mjs",
+    "check:web": "node --check web/app.js && node --check web/i18n.js && node --check web/errors.js && node --check web/vault-draft.js && node --check web/quick-switcher.js && node scripts/check-error-pairs.mjs",
     "crap": "node scripts/crap-score.mjs",
     "package:mac": "node scripts/build-macos.mjs"
   },

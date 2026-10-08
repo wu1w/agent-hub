@@ -271,7 +271,8 @@ test("CUA index 503 clears stale sessions, metadata and launch controls", async 
   const source = await fs.readFile(new URL("../../web/app.js", import.meta.url), "utf8");
   context.sessionStorage = { getItem: () => "" };
   context.fetch = async () => ({ status: 503, ok: false, json: async () => ({ error: "Vault unavailable" }) });
-  vm.runInContext(source.slice(source.indexOf("async function api("), source.indexOf("async function refresh(")), context);
+  const start = source.indexOf("async function api(");
+  vm.runInContext(source.slice(start, source.indexOf("\n}\n", start) + 3), context);
   vm.runInContext('sessionState = {sessions: [], handoffs: [], selected: {agent_id:"grok",session_id:"stale"}};', context);
   get("#handoff-out").textContent = "stale launch";
   get("#session-path").textContent = "stale path";
