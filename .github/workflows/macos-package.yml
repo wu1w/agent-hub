@@ -1,0 +1,48 @@
+name: macOS package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-arm64:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run check:web
+      - run: npm test
+      - name: Build Apple Silicon app archive
+        run: npm run package:mac -- --arch arm64 --skip-dmg
+      - name: Smoke test packaged runtime in an isolated home
+        run: node scripts/smoke-macos.mjs
+      - name: Verify archive checksums
+        working-directory: dist
+        run: |
+          for checksum in Agent-Hub-*-macOS-arm64-SHA256SUMS.txt; do
+            shasum -a 256 -c "$checksum"
+          done
+      - name: Upload app archive and checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-hub-macos-arm64-${{ github.sha }}
+          path: |
+            dist/Agent-Hub-*-macOS-arm64.zip
+            dist/Agent-Hub-*-macOS-arm64-SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14

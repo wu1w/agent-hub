@@ -410,6 +410,9 @@ export async function relinkHubSkills(config?: HubConfig): Promise<string[]> {
       const dir = resolvedSkillDir(id, home, cfg);
       await assertMount(dir);
       await fs.mkdir(dir, { recursive: true });
+      for (const removed of await pruneMissingHubLinks(dir)) {
+        linked.push(`${id}:${path.relative(dir, removed)}:unlinked`);
+      }
       const copies = new Map<string, { path: string; real: string | null }[]>();
       for (const entry of await skillEntries(dir)) {
         const list = copies.get(entry.name) ?? [];
@@ -445,6 +448,44 @@ export async function relinkHubSkills(config?: HubConfig): Promise<string[]> {
     }
     return linked;
   });
+}
+
+/** A source directory may be deleted outside Hub's UI. Remove only dangling mounts
+ * whose literal target belongs to this Hub; never follow client-owned directories
+ * through symlinks or inspect references inside an ordinary local skill.
+ */
+async function pruneMissingHubLinks(dir: string): Promise<string[]> {
+  const hub = path.resolve(hubPaths().skills);
+  const roots = [hub, await realpathOr(hub)].filter((root): root is string => Boolean(root));
+  const removed: string[] = [];
+  async function walk(root: string): Promise<void> {
+    if (await isBlockedSource((await realpathOr(root)) ?? root)) return;
+    for (const entry of await fs.readdir(root, { withFileTypes: true })) {
+      const file = path.join(root, entry.name);
+      if (entry.isDirectory()) {
+        if (!(await hasSkillMd(file))) await walk(file);
+        continue;
+      }
+      if (!entry.isSymbolicLink()) continue;
+      const raw = await readlinkOr(file);
+      if (!raw) continue;
+      const target = path.resolve(path.dirname(file), raw);
+      if (!roots.some(owned => target.startsWith(owned + path.sep))) continue;
+      try { await fs.stat(target); continue; }
+      catch (error) {
+        // Permissions, loops, and other failures are not proof that a source was deleted.
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      await assertSafeWritePath(path.dirname(file));
+      await checkpoint(file);
+      // An external writer may have replaced the link while we checked its source.
+      if (await readlinkOr(file) !== raw) continue;
+      await fs.unlink(file);
+      removed.push(file);
+    }
+  }
+  await walk(dir);
+  return removed;
 }
 
 async function ownedMounts(dir: string, hubPath: string): Promise<string[]> {

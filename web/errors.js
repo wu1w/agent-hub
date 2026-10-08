@@ -4,6 +4,7 @@
  */
 
 export const ERROR_PAIRS = [
+  ["Cursor loads home rules for workspaces under your home directory. Register workspaces outside it for native rule delivery.", "Cursor 会为用户目录内的工作区加载全局规则；目录外的工作区请登记原生规则投递。"],
   ["project memory not found", "项目记忆不存在，请先创建后再登记"],
   ["subagent already exists", "同名子代理已存在，请打开原文件编辑"],
   ["agent and name required", "需要 agent 和名称"],
@@ -186,6 +187,7 @@ export const ERROR_PATTERNS = [
 ];
 
 export const ERROR_PHRASES = [
+  ["Cursor 会为用户目录内的工作区加载全局规则；目录外的工作区请登记原生规则投递。", "Cursor loads home rules for workspaces under your home directory. Register workspaces outside it for native rule delivery."],
   ["本轮支持 Memory / 原生规则自动加载；其他层未接管。未做本机模型运行验收。", "This round supports Memory / native-rule autoload; other layers are not taken over. Live model runtime is not verified."],
   ["上游仓库已归档，仅保留兼容。", "Upstream repo is archived; kept for compatibility only."],
   ["Own 仅停止 Hub 投递，不隔离客户端读取；共享 AGENTS.md 等入口可能被其他客户端读取。", "Own only stops Hub delivery; it does not isolate native reads. Shared AGENTS.md entries may still be read by other clients."],

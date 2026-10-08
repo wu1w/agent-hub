@@ -1,4 +1,4 @@
-export const AGENT_IDS = ["grok", "cursor", "codex", "hyper", "workbuddy", "hermes", "claude", "opencode", "gemini", "cline", "roo", "kilo", "windsurf", "copilot", "goose", "qwen", "pi", "openclaw", "aider", "zcode", "grokbot", "doubao", "kimi"] as const;
+export const AGENT_IDS = ["grok", "cursor", "codex", "hyper", "workbuddy", "hermes", "claude", "opencode", "gemini", "cline", "roo", "kilo", "windsurf", "copilot", "goose", "qwen", "pi", "openclaw", "aider", "zcode", "grokbot", "doubao", "kimi", "deepseek"] as const;
 export type AgentId = (typeof AGENT_IDS)[number];
 
 export const LAYERS = ["skills", "ctx", "memory", "sessions", "vault"] as const;

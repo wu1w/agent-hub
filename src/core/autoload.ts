@@ -102,6 +102,7 @@ export async function syncNativeMemory(agent: AgentId, body: string | null, cwd?
     if (body.includes("<!-- agent-hub:")) throw new Error("memory contains reserved Hub block markers");
     // Hermes splits MEMORY.md on a bare newline-delimited §. Keep the Hub block one entry.
     if (agent === "hermes") body = body.replaceAll("\n§\n", "\n§ \n");
+    const trimmedBody = body.trim();
     await protectMemoryTarget(target.path, cwd);
     if (target.reference) await protectMemoryTarget(target.reference.path, cwd);
     for (const [otherKey, entries] of Object.entries(state)) {
@@ -111,7 +112,7 @@ export async function syncNativeMemory(agent: AgentId, body: string | null, cwd?
         const text = await readText(target.path) || "";
         const [a, b] = markers(other);
         const block = text.split(a + "\n# Hub Memory (read-only; edit in Agent Hub)\n\n")[1]?.split("\n" + b)[0];
-        if (!entries.filter(entry => path.resolve(entry.path) === path.resolve(target.path)).every(entry => entry.scope === (project || "global") || (entry.scope === undefined && block === body.trim()))) throw new HubError("共享原生入口已有不同记忆作用域；请使用客户端专属入口或统一作用域", 409);
+        if (!entries.filter(entry => path.resolve(entry.path) === path.resolve(target.path)).every(entry => entry.scope === (project || "global") || (entry.scope === undefined && block === trimmedBody))) throw new HubError("共享原生入口已有不同记忆作用域；请使用客户端专属入口或统一作用域", 409);
       }
     }
     const [start, end] = markers(agent);
@@ -123,7 +124,13 @@ export async function syncNativeMemory(agent: AgentId, body: string | null, cwd?
       if (remaining.startsWith(target.preamble)) remaining = remaining.slice(target.preamble.length);
       else if (current !== null) throw new Error("existing rule frontmatter differs; refusing to change its activation mode");
     }
-    const next = `${target.preamble || ""}${start}\n# Hub Memory (read-only; edit in Agent Hub)\n\n${body.trim()}\n${end}\n\n${remaining}`;
+    const block = `${start}\n# Hub Memory (read-only; edit in Agent Hub)\n\n${trimmedBody}\n${end}`;
+    // Native writers (notably Hermes's §-separated store) normalize whitespace and
+    // can move entries. Replace only our bounded block, preserving their layout.
+    const blockStart = current?.indexOf(start) ?? -1;
+    const next = current !== null && blockStart >= 0
+      ? current.slice(0, blockStart) + block + current.slice(current.indexOf(end) + end.length)
+      : `${target.preamble || ""}${block}\n\n${remaining}`;
     if (target.limit && next.length > target.limit) throw new Error(`${agent} 自动加载入口上限 ${target.limit} 字符（含原有内容），本次 ${next.length}；请缩短全局记忆或使用工作区记忆`);
     if (target.maxBytes && Buffer.byteLength(next) > target.maxBytes) throw new Error(`Hyper AGENTS.md 超过保守加载预算 ${target.maxBytes} UTF-8 字节；请精简或提高原生 context.agents_md_max_tokens，避免整份被忽略`);
     if (!tracked && current !== null) {
@@ -137,7 +144,10 @@ export async function syncNativeMemory(agent: AgentId, body: string | null, cwd?
     const reference = target.reference ? await attachReference(target.reference, target.path, tracked?.reference?.path === target.reference.path ? tracked.reference : undefined) : undefined;
     state[key] = [{ scope: project || "global", path: target.path, absent: tracked?.absent ?? current === null, preamble: target.preamble, reference }];
   }
-  if (prior.length || target) await writeText(manifestPath(), JSON.stringify(state, null, 2));
+  if (prior.length || target) {
+    const nextManifest = JSON.stringify(state, null, 2);
+    if (await readText(manifestPath()) !== nextManifest) await writeText(manifestPath(), nextManifest);
+  }
 }
 
 export async function memoryLoadingInfo(agent: AgentId): Promise<{ mode: "global" | "workspace" | "manual"; paths: string[]; note: string }> {
@@ -161,6 +171,7 @@ export async function memoryLoadingInfo(agent: AgentId): Promise<{ mode: "global
     for (const entry of entries) if (await exists(entry.path)) paths.push(entry.path);
   }
   if (agent === "cursor") {
+    if (target && await exists(target.path) && !paths.includes(target.path)) paths.push(target.path);
     const scopes = await loadInjectScopes();
     for (const scope of scopes) if (scope.agent === agent) {
       const dest = path.join(scope.cwd, ".cursor/rules/hub-generated-memory.mdc");
@@ -173,6 +184,7 @@ export async function memoryLoadingInfo(agent: AgentId): Promise<{ mode: "global
   const parts = [
     unavailable.length ? `工作区不可用，已跳过投递（可注销）：${unavailable.join("、")}。` : "",
     "Own 仅停止 Hub 投递，不隔离客户端读取；共享 AGENTS.md 等入口可能被其他客户端读取。",
+    agent === "cursor" ? "Cursor loads home rules for workspaces under your home directory. Register workspaces outside it for native rule delivery." : "",
     agent === "cline" ? "为避免 Documents/iCloud 同步，Hub 仅向明确登记的本地工作区 .clinerules 投递；请在 Memory 页登记工作区。" : "",
     agent === "openclaw" ? "需登记 OpenClaw 实际 agent workspace，加载 MEMORY.md；群聊、子代理及 bootstrap 预算由客户端决定。" : "",
     target

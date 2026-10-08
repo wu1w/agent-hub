@@ -24,9 +24,11 @@ import {
   scanProjectSkills,
   setSkillTargets,
 } from "./core/skills.ts";
-import { buildSnapshot } from "./core/snapshot.ts";
+import { buildCachedSnapshot, buildSnapshot, invalidateSnapshotCache } from "./core/snapshot.ts";
 import { saveVaultFromMarkdown, setVaultGrants, vaultCatalogFor, renderVaultGetMeta, vaultGet, vaultUiPayload, vaultExecArgv, restoreVaultPrevious } from "./core/vault.ts";
 import { startSessionSync } from "./core/session-sync.ts";
+import { startAssetSync } from "./core/asset-sync.ts";
+import { setAssetSyncStatus } from "./core/runtime-status.ts";
 import { startHubWatch } from "./core/watch.ts";
 import { isAgentId, type AgentId, type ConflictKeep, type Layer } from "./core/types.ts";
 import { adapterCommand } from "./core/adapters.ts";
@@ -173,7 +175,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
   }
 
   if (method === "GET" && url.pathname === "/api/snapshot") {
-    send(req, res, 200, await buildSnapshot(), cookie);
+    send(req, res, 200, await buildCachedSnapshot(), cookie);
     return;
   }
   if (method === "POST" && url.pathname === "/api/adopt") {
@@ -564,7 +566,11 @@ export async function startServer(port: number): Promise<http.Server> {
       try { url = new URL(req.url ?? "/", "http://127.0.0.1"); }
       catch { throw new HubError("invalid request URL", 400); }
       if (url.pathname.startsWith("/api/")) {
-        await api(req, res, url);
+        try {
+          await api(req, res, url);
+        } finally {
+          if (req.method && req.method !== "GET" && req.method !== "HEAD") invalidateSnapshotCache();
+        }
         return;
       }
       if (!(await guard(req, res, { requireSession: false }))) return;
@@ -606,14 +612,19 @@ export async function startServer(port: number): Promise<http.Server> {
     server.listen(port, "127.0.0.1", () => resolve());
     server.on("error", reject);
   });
-  const sessionSync = startSessionSync();
-  const stopWatch = await startHubWatch({ onSessionChange: () => sessionSync.notify() });
+  const assetSync = startAssetSync({ onStatus: setAssetSyncStatus });
+  const sessionSync = startSessionSync({ initial: true });
+  const stopWatch = await startHubWatch({ onSessionChange: () => sessionSync.notify(), onAssetChange: () => assetSync.notify() });
   const originalClose = server.close.bind(server);
   server.close = ((callback?: (err?: Error) => void) => {
     stopWatch();
-    sessionSync.stop();
-    closeSessionIndex();
-    return originalClose(callback);
+    // Stop accepting requests now, then drain existing requests and both workers.
+    const drained = Promise.all([sessionSync.stop(), assetSync.stop()]);
+    originalClose((error?: Error) => { void drained.then(() => {
+      closeSessionIndex();
+      callback?.(error);
+    }); });
+    return server;
   }) as typeof server.close;
   const addr = server.address();
   const actual = typeof addr === "object" && addr ? addr.port : port;

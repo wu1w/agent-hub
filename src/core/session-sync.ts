@@ -7,13 +7,25 @@ export const SESSION_SYNC_CAP_MS = 5 * 60_000;
 
 export type SessionSyncHandle = {
   notify: () => void;
-  stop: () => void;
+  stop: () => Promise<void>;
+  status: () => SessionSyncStatus;
 };
+
+export type SessionSyncStatus = {
+  running: boolean;
+  lastAttemptAt: number | null;
+  lastSuccessAt: number | null;
+  error: string | null;
+  skipped: boolean;
+};
+let currentStatus: SessionSyncStatus = { running: false, lastAttemptAt: null, lastSuccessAt: null, error: null, skipped: false };
+export function sessionSyncStatus(): SessionSyncStatus { return { ...currentStatus }; }
 
 export function startSessionSync(options?: {
   quietMs?: number;
   capMs?: number;
   run?: () => Promise<unknown>;
+  initial?: boolean;
 }): SessionSyncHandle {
   const quietMs = options?.quietMs ?? SESSION_SYNC_QUIET_MS;
   const capMs = options?.capMs ?? SESSION_SYNC_CAP_MS;
@@ -21,6 +33,24 @@ export function startSessionSync(options?: {
   let quiet: ReturnType<typeof setTimeout> | null = null;
   let cap: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
+  let active: Promise<void> | null = null;
+  const state: SessionSyncStatus = { running: false, lastAttemptAt: null, lastSuccessAt: null, error: null, skipped: false };
+  currentStatus = state;
+  const runOnce = (): Promise<void> => {
+    if (stopped || active) return active ?? Promise.resolve();
+    state.running = true;
+    state.lastAttemptAt = Date.now();
+    active = (async () => { try {
+      const result = await run();
+      state.skipped = Boolean(result && typeof result === "object" && "skipped" in result && result.skipped);
+      if (!state.skipped) { state.lastSuccessAt = Date.now(); state.error = null; }
+      else notify(); // An asset transaction may hold the writer lock during startup.
+    } catch (error) {
+      state.error = error instanceof Error ? error.message : String(error);
+      state.skipped = false;
+    } finally { state.running = false; } })().finally(() => { active = null; });
+    return active;
+  };
 
   const fire = () => {
     if (quiet) clearTimeout(quiet);
@@ -28,7 +58,7 @@ export function startSessionSync(options?: {
     if (cap) clearTimeout(cap);
     cap = null;
     if (stopped) return;
-    void Promise.resolve(run()).catch(() => {});
+    void runOnce();
   };
 
   const notify = () => {
@@ -39,19 +69,22 @@ export function startSessionSync(options?: {
   };
 
   const interval = setInterval(() => {
-    if (!stopped) void Promise.resolve(run()).catch(() => {});
+    void runOnce();
   }, capMs);
   interval.unref();
+  if (options?.initial) void runOnce();
 
   return {
     notify,
-    stop() {
+    status: () => ({ ...state }),
+    async stop() {
       stopped = true;
       if (quiet) clearTimeout(quiet);
       if (cap) clearTimeout(cap);
       quiet = null;
       cap = null;
       clearInterval(interval);
+      await active;
     },
   };
 }

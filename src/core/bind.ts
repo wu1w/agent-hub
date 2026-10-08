@@ -1,6 +1,6 @@
 import { transaction } from "./transaction.ts";
 import fs from "node:fs/promises";
-import { isAgentPresent, supportsSessions, adapter, homedir } from "./adapters.ts";
+import { isAgentPresent, supportsSessions, supportsVault, adapter, homedir } from "./adapters.ts";
 import { loadConfig, setBind } from "./config.ts";
 import {
   injectCtx,
@@ -38,6 +38,7 @@ export async function applyBind(input: BindInput): Promise<{ config: HubConfig; 
     }
     if (adapter(input.agent).memoryOnly && input.layer !== "memory") throw new HubError(`${input.agent} 本轮仅支持 Memory 自动加载`, 400);
     if (input.layer === "sessions" && input.value === "index" && !supportsSessions(input.agent)) throw new HubError(`${input.agent} 尚无会话扫描器`, 400);
+    if (input.layer === "vault" && input.value !== "off" && !supportsVault(input.agent)) throw new HubError(`${input.agent} 尚不支持 Vault`, 400);
     if ((input.layer === "memory" || input.layer === "ctx" || input.layer === "vault") && input.value === "hub" && !isAgentPresent(input.agent)) {
       throw new HubError(`${input.agent} 未检测到安装，请安装客户端并初始化配置后重试`, 409);
     }

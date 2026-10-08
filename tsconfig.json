@@ -15,5 +15,5 @@
     "allowJs": true,
     "rootDir": "."
   },
-  "include": ["src", "web/errors.js", "web/i18n.js"]
+  "include": ["src", "desktop/backend.ts", "web/errors.js", "web/i18n.js"]
 }

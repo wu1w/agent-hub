@@ -79,7 +79,8 @@ export async function injectMemory(agent: AgentId, preferProject?: string, cwd?:
       ? `---\ndescription: Agent Hub 只读记忆注入。不要手改。\nalwaysApply: true\n---`
       : undefined;
     await protectMemoryTarget(dest, cwd);
-    await writeText(dest, wrapInject(body, extra));
+    const next = wrapInject(body, extra);
+    if (await readText(dest) !== next) await writeText(dest, next);
     await syncNativeMemory(agent, body, cwd, preferProject);
     return dest;
   });
@@ -206,13 +207,11 @@ export async function injectCtx(agent: AgentId): Promise<string | null> {
     const extra = agent === "cursor"
       ? `---\ndescription: Agent Hub USER.md 投影。不要当人设用。\nalwaysApply: true\n---\n\n`
       : "";
-    await writeText(
-      dest,
-      `${extra}${HUB_MARK}
+    const next = `${extra}${HUB_MARK}
 <!-- 只读投影 Hub ctx/USER.md。改用户短文件请到 Agent Hub。不要当人设用。 -->
 
-${source.trim()}\n`,
-    );
+${source.trim()}\n`;
+    if (await readText(dest) !== next) await writeText(dest, next);
     return dest;
   });
 }

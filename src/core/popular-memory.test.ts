@@ -13,7 +13,7 @@ import { writeGlobalMemory } from "./memory.ts";
 import { AGENT_IDS } from "./types.ts";
 import { parseJsonConfig } from "./config-reference.ts";
 import { parse } from "yaml";
-const keys = ["HOME", "AGENT_HUB_ROOT", "XDG_CONFIG_HOME", "PI_CODING_AGENT_DIR", "CONTEXT_FILE_NAMES", "OPENCLAW_STATE_DIR"];
+const keys = ["HOME", "AGENT_HUB_ROOT", "XDG_CONFIG_HOME", "PI_CODING_AGENT_DIR", "CONTEXT_FILE_NAMES", "OPENCLAW_STATE_DIR", "DSH_HOME"];
 const env = { ...process.env };
 let home: string;
 beforeEach(async () => {

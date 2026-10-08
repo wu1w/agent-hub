@@ -26,8 +26,8 @@ export function identityNativeTarget(agent: AgentId, home = homedir()): Identity
   if (agent === "grok") {
     return { path: path.join(agentHome("grok", home), "rules", "hub-identity.md"), native: false, kind: "file" };
   }
-  if (agent === "codex") {
-    return { path: path.join(agentHome("codex", home), "AGENTS.md"), native: false, kind: "block" };
+  if (agent === "codex" || agent === "deepseek") {
+    return { path: path.join(agentHome(agent, home), "AGENTS.md"), native: false, kind: "block" };
   }
   return { path: adapter(agent).identityPath(home), native: true, kind: "file" };
 }

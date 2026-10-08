@@ -48,7 +48,7 @@ async function kiloConfig(root: string): Promise<string> {
 export async function popularMemoryTarget(agent: AgentId, cwd?: string): Promise<MemoryTarget | null> {
   const root = cwd || agentHome(agent);
   switch (agent) {
-    case "zcode": case "kimi": return { path: path.join(root, "AGENTS.md") };
+    case "zcode": case "kimi": case "deepseek": return { path: path.join(root, "AGENTS.md") };
     // These desktop clients have no verified local instruction autoloader.
     case "grokbot": case "doubao": return null;
     case "gemini": case "qwen": return { path: await contextFile(agent, cwd) };

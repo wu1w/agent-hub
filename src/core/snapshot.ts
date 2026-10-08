@@ -1,9 +1,13 @@
+import { backgroundSyncStatus } from "./runtime-status.ts";
+import { hermesMemoryCapacity, type MemoryCapacity } from "./memory-capacity.ts";
 import { memoryLoadingInfo } from "./autoload.ts";
 import { identityNativeTarget } from "./identity-native.ts";
 import { diskEpoch } from "./watch.ts";
 import { withHubLock } from "./transaction.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import { createSnapshotReadCache } from "./snapshot-cache.ts";
 import { supportsSessions, supportsHandoff, supportsVault, agentInstallationEvidence, adapter, adapterCommand, homedir, isAgentPresent } from "./adapters.ts";
 import { syncPathWarning, ensureHub, hubPaths, loadConfig, resolvedSkillDir } from "./config.ts";
 import { readText } from "./fsx.ts";
@@ -73,6 +77,9 @@ export async function agentSnapshots(config: HubConfig): Promise<AgentSnapshot[]
 export type Snapshot = {
   hubRoot: string;
   diskEpoch: number;
+  metadataRevision: string;
+  sync: ReturnType<typeof backgroundSyncStatus>;
+  memoryCapacity: MemoryCapacity | null;
   warnings: string[];
   config: HubConfig;
   agents: AgentSnapshot[];
@@ -90,46 +97,87 @@ export type Snapshot = {
   broken: { name: string; agent: string; path: string }[];
 };
 
-export async function buildSnapshot(): Promise<Snapshot> {
+type SnapshotMetadata = Pick<Snapshot, "agents" | "catalog" | "skillsStatus" | "skills" | "vendorSkills" | "unadopted" | "conflicts" | "broken" | "warnings">;
+
+// Polling should not traverse every native/vendor skills tree on every request.
+// The TTL also covers external agent locations that are not watched (or were
+// missing when watchers started). Sensitive and frequently changing data below
+// is deliberately excluded from this cache.
+const metadataCache = createSnapshotReadCache<SnapshotMetadata>({
+  ttlMs: 60_000,
+  cacheable: value => value.skillsStatus === "ready",
+});
+
+export function invalidateSnapshotCache(): void { metadataCache.invalidate(); }
+
+function fingerprint(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+async function scanMetadata(config: HubConfig): Promise<SnapshotMetadata> {
+  const warnings: string[] = [];
+  let skillsStatus: Snapshot["skillsStatus"] = "ready";
+  let skills: Snapshot["skills"] = [], vendorSkills: Snapshot["vendorSkills"] = [], unadopted: Snapshot["unadopted"] = [];
+  let conflicts: Snapshot["conflicts"] = [], broken: Snapshot["broken"] = [];
+  try {
+    const mounted = await scanUserSkills(config);
+    const hubNames = new Set((await listHubSkills()).map(item => item.name));
+    unadopted = mounted.filter(item => !hubNames.has(item.name)).map(item => ({ agent: item.agent, name: item.name, path: item.path }));
+    skills = await skillRecords(config, mounted);
+    vendorSkills = await scanVendorSkills(config);
+    conflicts = await conflictRows(config, skills, mounted);
+    broken = await brokenRows(config, skills);
+  } catch (error) {
+    skillsStatus = "unavailable";
+    skills = []; vendorSkills = []; unadopted = []; conflicts = []; broken = [];
+    warnings.push(`Skills 状态不可用（不是空库），其他模块仍可使用：${error instanceof Error ? error.message : "扫描失败"}`);
+  }
+  return {
+    warnings,
+    agents: await agentSnapshots(config),
+    catalog: AGENT_IDS.map((id) => {
+      const ad = adapter(id);
+      return {
+        id,
+        label: ad.label,
+        present: isAgentPresent(id, homedir()),
+        enabled: config.agents.enabled.includes(id),
+        memoryOnly: Boolean(ad.memoryOnly),
+      };
+    }),
+    skillsStatus, skills, vendorSkills,
+    unadopted,
+    conflicts, broken,
+  };
+}
+
+/** A forced scan for CLI reads and mutation responses. */
+export async function buildSnapshot(): Promise<Snapshot> { return readSnapshot(false); }
+
+/** HTTP polling reuses only scan metadata; config and vault are always reread. */
+export async function buildCachedSnapshot(): Promise<Snapshot> { return readSnapshot(true); }
+
+async function readSnapshot(cached: boolean): Promise<Snapshot> {
   return withHubLock(async () => {
     await ensureHub();
+    // Read before any cache lookup: an external Hub/Own or adapter-path change
+    // must take effect even before a watcher fires or the fallback TTL expires.
     const config = await loadConfig();
     const p = hubPaths();
-    const warnings = [syncPathWarning(p.root)].filter((message): message is string => message !== null);
-    let skillsStatus: Snapshot["skillsStatus"] = "ready";
-    let skills: Snapshot["skills"] = [], vendorSkills: Snapshot["vendorSkills"] = [], unadopted: Snapshot["unadopted"] = [];
-    let conflicts: Snapshot["conflicts"] = [], broken: Snapshot["broken"] = [];
-    try {
-      const mounted = await scanUserSkills(config);
-      const hubNames = new Set((await listHubSkills()).map(item => item.name));
-      unadopted = mounted.filter(item => !hubNames.has(item.name)).map(item => ({ agent: item.agent, name: item.name, path: item.path }));
-      skills = await skillRecords(config, mounted);
-      vendorSkills = await scanVendorSkills(config);
-      conflicts = await conflictRows(config, skills, mounted);
-      broken = await brokenRows(config, skills);
-    } catch (error) {
-      skillsStatus = "unavailable";
-      skills = []; vendorSkills = []; unadopted = []; conflicts = []; broken = [];
-      warnings.push(`Skills 状态不可用（不是空库），其他模块仍可使用：${error instanceof Error ? error.message : "扫描失败"}`);
-    }
+    if (!cached) invalidateSnapshotCache();
+    const key = fingerprint({ root: p.root, home: homedir(), config, epoch: diskEpoch() });
+    const metadata = await metadataCache.read(key, () => scanMetadata(config));
+    const warnings = [syncPathWarning(p.root), ...metadata.warnings].filter((message): message is string => message !== null);
     return {
+      ...metadata,
       hubRoot: p.root,
       diskEpoch: diskEpoch(),
+      metadataRevision: fingerprint(metadata),
+      sync: backgroundSyncStatus(),
+      memoryCapacity: config.agents.enabled.includes("hermes") && config.bind.hermes.memory === "hub"
+        ? await hermesMemoryCapacity().catch(() => null) : null,
       warnings,
       config,
-      agents: await agentSnapshots(config),
-      catalog: AGENT_IDS.map((id) => {
-        const ad = adapter(id);
-        return {
-          id,
-          label: ad.label,
-          present: isAgentPresent(id, homedir()),
-          enabled: config.agents.enabled.includes(id),
-          memoryOnly: Boolean(ad.memoryOnly),
-        };
-      }),
-      skillsStatus, skills, vendorSkills,
-      unadopted,
       userMd: { path: p.userMd, content: (await readText(p.userMd)) ?? "" },
       memory: await memorySnapshot(),
       nativeMemory: await scanNativeMemory(config),
@@ -139,7 +187,6 @@ export async function buildSnapshot(): Promise<Snapshot> {
         return { ...catalog, all: sessionStats(enabled).count };
       })(),
       vault: await vaultSummary(),
-      conflicts, broken,
     };
   });
 }

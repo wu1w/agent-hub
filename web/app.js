@@ -69,6 +69,7 @@ function ctxHubBlockReason(agent) {
 // One disabled reason per (agent, layer, value), mirroring the old <option disabled> rules.
 function layerOptionBlock(agent, layer, value) {
   if (agent.memoryOnly && layer !== "memory") return t("block.memoryOnly");
+  if (layer === "vault" && agent.supportsVault === false) return t("block.noVault");
   if (layer === "sessions" && !agent.supportsSessions) return t("block.noScanner");
   if ((layer === "memory" || layer === "ctx" || layer === "vault") && value === "hub" && !agent.present) return t("block.notInstalled");
   if (layer === "ctx" && value === "hub" && !allowsCtxHub(agent)) return ctxHubBlockReason(agent);
@@ -293,6 +294,11 @@ function renderOverview() {
     row.querySelector("label").textContent = t(meta.labelKey);
     bars.append(row);
   }
+  renderSyncStatus();
+  renderOverviewWarnings();
+}
+
+function renderOverviewWarnings() {
   const warnings = snapshotWarnings();
   const panel = $("#ov-warnings-panel");
   panel.hidden = warnings.length === 0;
@@ -937,8 +943,39 @@ function fillHandoffTargets() {
   if (prev) sel.value = prev;
 }
 
+function renderSyncStatus(offline = false) {
+  const assetNode = $("#ov-asset-sync"), sessionNode = $("#ov-session-sync");
+  if (!assetNode || !sessionNode) return;
+  if (offline) {
+    assetNode.textContent = t("overview.syncOffline");
+    sessionNode.textContent = "";
+    return;
+  }
+  const label = (running, error, success) => error ? t("overview.syncError", { error: apiErrorText(error) })
+    : running ? t("overview.syncRunning") : success ? t("overview.syncOk", {
+      time: new Date(success).toLocaleString(getLang() === "en" ? "en-US" : "zh-CN"),
+    }) : t("overview.syncPending");
+  const assets = snap.sync?.assets, sessions = snap.sync?.sessions;
+  const errors = Object.values(assets?.layers || {}).flatMap(layer => layer.errors || []);
+  assetNode.textContent = t("overview.assetSync", {
+    status: label(assets?.running, errors.map(row => row.error).join("; "), assets?.lastSyncedAt),
+    seconds: (assets?.intervalMs ?? 10000) / 1000,
+  });
+  sessionNode.textContent = t("overview.sessionSync", {
+    status: label(sessions?.running, sessions?.error, sessions?.lastSuccessAt),
+  });
+}
+
 function snapshotWarnings() {
   const warnings = [...(snap.warnings || [])];
+  if (snap.memoryCapacity?.nearLimit) warnings.push(t("warning.memoryCapacity", {
+    used: snap.memoryCapacity.usedChars, limit: snap.memoryCapacity.effectiveLimit,
+    remaining: snap.memoryCapacity.remainingChars,
+  }));
+  for (const layer of Object.values(snap.sync?.assets?.layers || {})) {
+    for (const failure of layer.errors || []) warnings.push(t("overview.syncError", { error: `${failure.agent || failure.layer}: ${apiErrorText(failure.error)}` }));
+  }
+  if (snap.sync?.sessions?.error) warnings.push(t("overview.syncError", { error: apiErrorText(snap.sync.sessions.error) }));
   if (snap.vault.status === "unavailable") warnings.push(snap.vault.error);
   return warnings;
 }
@@ -1080,7 +1117,8 @@ function renderAgents() {
       const seg = document.createElement("div");
       seg.dataset.layer = layer;
       const groupBlock = (agent.memoryOnly && layer !== "memory") ? t("block.memoryOnly")
-        : (layer === "sessions" && !agent.supportsSessions) ? t("block.noScanner") : null;
+        : (layer === "sessions" && !agent.supportsSessions) ? t("block.noScanner")
+        : (layer === "vault" && agent.supportsVault === false) ? t("block.noVault") : null;
       seg.className = "seg" + (groupBlock ? " dis" : "");
       if (groupBlock) seg.title = groupBlock;
       for (const [value, label] of meta.options) {
@@ -2487,9 +2525,14 @@ function renderSessions() {
 function acceptSnapshot(next) {
   const prevIndexed = snap && snap.sessions ? snap.sessions.indexedAt : undefined;
   const nextIndexed = next && next.sessions ? next.sessions.indexedAt : undefined;
-  const diskChanged = Boolean(snap) && next.diskEpoch !== snap.diskEpoch;
+  const diskChanged = Boolean(snap) && (next.diskEpoch !== snap.diskEpoch || next.metadataRevision !== snap.metadataRevision);
   const sessionsChanged = Boolean(snap) && nextIndexed !== prevIndexed;
   snap = next;
+  if (next.sync) {
+    renderSyncStatus();
+    renderSnapshotWarnings();
+    renderOverviewWarnings();
+  }
   if (diskChanged) {
     renderAll();
     if (!keepDiskChangedQuiet()) notice("banner.diskChanged");
@@ -2527,7 +2570,13 @@ $$("[data-preview]").forEach((btn) => {
 $("#side-host").textContent = location.host;
 go(location.hash.replace("#/", ""));
 refresh().then(() => { if (snap.skillsStatus !== "unavailable" && !snap.skills.length && !localStorage.getItem(`hub-onboard:${snap.hubRoot}`)) return startOnboarding(); }).catch((err) => banner(String(err.message ?? err)));
-setInterval(() => {
-  if (!snap) return;
-  api("/api/snapshot").then((next) => acceptSnapshot(next)).catch(() => {});
-}, 8000);
+let snapshotPollRunning = false;
+async function pollSnapshot() {
+  if (!snap || document.hidden || snapshotPollRunning) return;
+  snapshotPollRunning = true;
+  try { acceptSnapshot(await api("/api/snapshot")); }
+  catch { renderSyncStatus(true); }
+  finally { snapshotPollRunning = false; }
+}
+setInterval(pollSnapshot, 8000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) void pollSnapshot(); });

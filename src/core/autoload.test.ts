@@ -4,10 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, test } from "node:test";
 import { agentHome, adapter } from "./adapters.ts";
-import { nativeMemoryTarget } from "./autoload.ts";
+import { nativeMemoryTarget, memoryLoadingInfo } from "./autoload.ts";
 import { applyBind } from "./bind.ts";
-import { loadConfig, saveConfig } from "./config.ts";
-import { selectMemoryProject, syncMemoryInjects } from "./deliver.ts";
+import { hubPaths, loadConfig, saveConfig } from "./config.ts";
+import { selectMemoryProject, syncMemoryInjects, syncMemoryReport } from "./deliver.ts";
 import { readText } from "./fsx.ts";
 import { writeGlobalMemory, writeProjectMemory } from "./memory.ts";
 import { AGENT_IDS } from "./types.ts";
@@ -19,7 +19,7 @@ beforeEach(async () => {
   home = await fs.mkdtemp(path.join(os.tmpdir(), "hub-autoload-"));
   process.env.HOME = home;
   process.env.AGENT_HUB_ROOT = path.join(home, ".agent-hub");
-  for (const name of ["CODEX_HOME", "GROK_HOME", "HERMES_HOME", "CLAUDE_CONFIG_DIR", "WORKBUDDY_CONFIG_DIR", "WORKBUDDY_DATA_FOLDER_NAME", "KIMI_CODE_HOME"]) delete process.env[name];
+  for (const name of ["CODEX_HOME", "GROK_HOME", "HERMES_HOME", "CLAUDE_CONFIG_DIR", "WORKBUDDY_CONFIG_DIR", "WORKBUDDY_DATA_FOLDER_NAME", "KIMI_CODE_HOME", "DSH_HOME"]) delete process.env[name];
   for (const id of AGENT_IDS) await fs.mkdir(path.join(agentHome(id), id === "cursor" ? "projects" : "sessions"), { recursive: true });
   await fs.writeFile(path.join(agentHome("hermes"), "config.yaml"), "{}\n");
   await fs.writeFile(path.join(agentHome("claude"), "settings.json"), "{}\n");
@@ -30,7 +30,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await fs.rm(home, { recursive: true, force: true });
-  for (const key of ["HOME", "AGENT_HUB_ROOT", "CODEX_HOME", "GROK_HOME", "HERMES_HOME", "CLAUDE_CONFIG_DIR", "WORKBUDDY_CONFIG_DIR", "WORKBUDDY_DATA_FOLDER_NAME", "KIMI_CODE_HOME"]) {
+  for (const key of ["HOME", "AGENT_HUB_ROOT", "CODEX_HOME", "GROK_HOME", "HERMES_HOME", "CLAUDE_CONFIG_DIR", "WORKBUDDY_CONFIG_DIR", "WORKBUDDY_DATA_FOLDER_NAME", "KIMI_CODE_HOME", "DSH_HOME"]) {
     if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key];
   }
 });
@@ -78,6 +78,17 @@ test("Cursor and Hyper accept a global-only workspace and receive subsequent upd
     await applyBind({ agent, layer: "memory", value: "own" });
     assert.equal(await readText(dest), null);
   }
+});
+
+test("Cursor loading status includes the home rule and registered workspace rule", async () => {
+  await applyBind({ agent: "cursor", layer: "memory", value: "hub" });
+  const global = (await nativeMemoryTarget("cursor"))!.path;
+  assert.deepEqual((await memoryLoadingInfo("cursor")).paths, [global]);
+  await selectMemoryProject("cursor", undefined, workspace, true);
+  const local = (await nativeMemoryTarget("cursor", workspace))!.path;
+  const info = await memoryLoadingInfo("cursor");
+  assert.deepEqual(info.paths, [global, local]);
+  assert.match(info.note, /workspaces under your home directory/);
 });
 
 test("native limits fail atomically and do not commit binding or replace user memory", async () => {
@@ -140,6 +151,32 @@ test("Hermes memory keeps a section mark inside the Hub block as one entry", asy
   const next = (await readText(dest))!;
   assert.match(next, /\n§\nlocal note\n/);
   assert.match(next, /before\n§ \nafter/);
+});
+
+test("repeated Hermes sync preserves native entry layout and leaves unchanged files untouched", async () => {
+  const config = await loadConfig();
+  config.agents.enabled = ["hermes"];
+  await saveConfig(config);
+  await applyBind({ agent: "hermes", layer: "memory", value: "hub" });
+  const dest = (await nativeMemoryTarget("hermes"))!.path;
+  const nativeBlock = (await readText(dest))!.trimEnd();
+  // Hermes rewrites entries with one newline around § and no final newline.
+  const prefix = "LOCAL PREFIX\n§\n";
+  const suffix = "\n§\nLOCAL SUFFIX";
+  const native = prefix + nativeBlock + suffix;
+  await fs.writeFile(dest, native);
+  const files = [dest, adapter("hermes").memoryInjectPath(home), path.join(hubPaths().memory, "autoload.json")];
+  const oldTime = new Date("2001-01-01T00:00:00Z");
+  for (const file of files) await fs.utimes(file, oldTime, oldTime);
+  for (let i = 0; i < 10; i++) {
+    const report = await syncMemoryReport();
+    assert.deepEqual(report.failures, []);
+    assert.equal(await readText(dest), native);
+  }
+  for (const file of files) assert.equal((await fs.stat(file)).mtimeMs, oldTime.getTime(), file);
+  await writeGlobalMemory("UPDATED_GLOBAL_422");
+  assert.deepEqual((await syncMemoryReport()).failures, []);
+  assert.equal(await readText(dest), prefix + nativeBlock.replace("SYNTHETIC_GLOBAL_421", "UPDATED_GLOBAL_422") + suffix);
 });
 
 test("Hyper refuses a document its native loader may silently omit", async () => {

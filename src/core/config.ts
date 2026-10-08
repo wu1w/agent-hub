@@ -6,7 +6,7 @@ import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parse, stringify } from "smol-toml";
-import { supportsSessions, adapter, homedir, isAgentPresent, hyperConfiguredSkillDir, resolveUserPath } from "./adapters.ts";
+import { supportsSessions, supportsVault, adapter, homedir, isAgentPresent, hyperConfiguredSkillDir, resolveUserPath } from "./adapters.ts";
 import {
   AGENT_IDS,
   CORE_AGENT_IDS,
@@ -183,6 +183,8 @@ function mergeBind(id: AgentId, raw: unknown): AgentBind {
   if (obj.vault === "off" || obj.vault === "own" || obj.vault === "hub") base.vault = obj.vault;
   if (!supportsSessions(id) && base.sessions !== "own") throw new Error(`config.toml: ${id} 不支持 Sessions=index`);
   if (adapter(id).memoryOnly && (base.skills !== "own" || base.ctx !== "own" || base.vault !== "off")) throw new Error(`config.toml: ${id} 仅支持 Memory`);
+  if (!supportsVault(id) && base.vault !== "off") throw new Error(`${id} 尚不支持 Vault`);
+  if (!adapter(id).userMdProjection && base.ctx !== "own") throw new Error(`${id} 不支持 Ctx=Hub`);
   return base;
 }
 
@@ -295,6 +297,8 @@ export async function setBind(
     if (!isAgentId(agent)) throw new Error(`unknown agent: ${agent}`);
     if (layer === "sessions" && value === "index" && !supportsSessions(agent)) throw new Error(`${agent} 不支持 Sessions=index`);
     if (adapter(agent).memoryOnly && ((layer === "skills" || layer === "ctx") && value !== "own" || layer === "vault" && value !== "off")) throw new Error(`${agent} 仅支持 Memory`);
+    if (layer === "vault" && value !== "off" && !supportsVault(agent)) throw new Error(`${agent} 尚不支持 Vault`);
+    if (layer === "ctx" && value === "hub" && !adapter(agent).userMdProjection) throw new Error(`${agent} 不支持 Ctx=Hub`);
     const config = await loadConfig();
     const bind = { ...config.bind[agent] };
     if (layer === "skills" && (value === "hub" || value === "own")) bind.skills = value;

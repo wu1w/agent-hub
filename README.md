@@ -1,8 +1,10 @@
 # Agent Hub
 
-A local control plane for assets shared by multiple agents. One set of user assets, bound by capability across 23 agents. Extra adapters are Memory-first. The software does not run a model.
+A local control plane for assets shared by multiple agents. One set of user assets, bound by capability across 24 agents. Extra adapters expose their verified capabilities. The software does not run a model.
 
 Source and docs live in this repository. Runtime data lives in `~/.agent-hub/`.
+
+**macOS app:** Download the Apple Silicon DMG or ZIP from [Releases](https://github.com/wu1w/agent-hub/releases). Drag Agent Hub to Applications and open it. The current build targets macOS 13 or later and is ad-hoc signed, not Apple-notarized. See [desktop packaging and verification](docs/macos-desktop.md) for details.
 
 - [Product requirements (PRD)](docs/PRD.md)
 - [Technical specification (SPEC)](docs/SPEC.md)
@@ -10,6 +12,9 @@ Source and docs live in this repository. Runtime data lives in `~/.agent-hub/`.
 - [Round 6 fixes and overall audit](docs/audit-round6-2026-09-17.md)
 - [Round 7 fixes and regression audit](docs/audit-round7-2026-09-17.md)
 - [Computer Use browser acceptance](docs/computer-use-acceptance-2026-09-17.md)
+- [DeepSeek Harness compatibility and native loading](docs/deepseek-harness-2026-10-08.md)
+- [2026-10-08 runtime and sync audit](docs/hub-health-2026-10-08.md)
+- [macOS desktop packaging and performance](docs/macos-desktop.md)
 
 ## What it is
 
@@ -44,7 +49,7 @@ Vendor skills, such as `~/.cursor/skills-cursor` and `~/.grok/bundled/skills`, a
 
 ## Target runtimes
 
-There are 23 entries. The original five start enabled (Grok CLI, Cursor, Codex, grok-hyper, WorkBuddy), plus any client already detected on the machine. The rest are turned on by hand from the catalog on the Agents page. Hermes and Claude Code have session scanners and still default to Own. The sixteen newer entries support Memory only. The list and native entry points are in [Popular agent notes](docs/popular-agents-2026-09-16.md). Skill paths for the original five:
+There are 24 entries. The original five start enabled (Grok CLI, Cursor, Codex, grok-hyper, WorkBuddy), plus any client already detected on the machine. The rest are turned on by hand from the catalog on the Agents page. Hermes and Claude Code have session scanners and still default to Own. Sixteen entries support Memory only. DeepSeek Harness supports Skills, native Memory loading and an Identity projection; its Ctx, session index, handoff and Vault integrations are not enabled. DeepSeek bindings default to Own, and existing configurations retain their explicit enabled list. The list and native entry points are in [Popular agent notes](docs/popular-agents-2026-09-16.md) and [DeepSeek Harness notes](docs/deepseek-harness-2026-10-08.md). Skill paths for the original five:
 
 | id | Runtime | User skill directory (illustrative) |
 |---|---|---|
@@ -88,13 +93,17 @@ npm run web
 
 CI on GitHub Actions (Node 22) runs `npm run typecheck`, `npm run check:web`, and `npm test`.
 
+The macOS desktop application uses a native AppKit window and system WebKit, with its own pinned Node runtime and bundled backend. No separate Node installation or terminal is required. It reads the same Hub data and root pointer as the CLI. Closing the window keeps synchronization running; Quit stops the backend. It does not install a login daemon.
+
+While the service is running, edits to Hub memory, context and skills are reconciled after about one second, with a ten-second polling fallback. Unchanged content is not rewritten. Only Hub bindings are delivered; deleted Hub skill mounts are removed without touching private skills. Session changes trigger indexing after about twenty seconds, with a five-minute fallback. Overview shows last successful checks and current errors; these do not prove that a client has refreshed an already-open conversation. Synchronization pauses while the machine is asleep or the user is logged out.
+
 Implementation order is in the [PRD](docs/PRD.md) and the [SPEC](docs/SPEC.md).
 
 ## Native memory autoload (2026-09-16)
 
 Memory covers Grok CLI, Cursor, Codex, grok-hyper, WorkBuddy, and Hermes / Claude Code. New adapters default to Own. A client that is not installed does not get a fake config directory.
 
-After global Memory is set to Hub, it takes effect in a new session. Cursor and grok-hyper use native workspace rules, so register the workspace on the Memory page first (project id `*` loads global memory only). After upgrading an existing bind, use "resync load entries".
+After global Memory is set to Hub, it takes effect in a new session. Current Cursor loads home rules for workspaces beneath the user's home directory; register other workspaces explicitly. grok-hyper uses native workspace rules, so register its workspace on the Memory page first (project id `*` loads global memory only). After upgrading an existing bind, use "resync load entries".
 
 Entry points, limits, CLI usage, and live verification are in the [autoload notes](docs/memory-autoload-2026-09-16.md).
 

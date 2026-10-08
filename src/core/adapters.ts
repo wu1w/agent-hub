@@ -9,6 +9,8 @@ export type Adapter = {
   id: AgentId;
   memoryOnly?: boolean;
   manualMemory?: boolean;
+  handoff?: boolean;
+  vault?: boolean;
   compatibilityNote?: string;
   command?: string;
   label: string;
@@ -71,6 +73,7 @@ export function agentHome(id: AgentId, home = homedir()): string {
     aider: ["", ".aider"],
     zcode: ["", ".zcode"], grokbot: ["", ".grokbot"],
     doubao: ["", "Doubao"], kimi: ["KIMI_CODE_HOME", ".kimi-code"],
+    deepseek: ["DSH_HOME", ".dsh"],
   };
   const [env, fallback] = roots[id]!;
   return env && process.env[env]?.trim() ? resolveUserPath(process.env[env]!, home) : path.join(home, fallback);
@@ -197,6 +200,19 @@ export const ADAPTERS: Adapter[] = [
     sessionRoot: (h) => path.join(agentHome(id, h), id === "hermes" ? "sessions" : "projects"),
     presentMarker: (h) => agentHome(id, h),
   })),
+  {
+    id: "deepseek",
+    label: "DeepSeek Harness",
+    command: "dsh",
+    handoff: false,
+    vault: false,
+    identityPath: (h) => path.join(agentHome("deepseek", h), "hub", "IDENTITY.md"),
+    skillDir: (h) => path.join(agentHome("deepseek", h), "skills"),
+    vendorSkillDirs: (h) => [path.join(agentHome("deepseek", h), "skills", ".system")],
+    memoryInjectPath: (h) => path.join(agentHome("deepseek", h), "hub", "memory.md"),
+    vaultCatalogPath: (h) => path.join(agentHome("deepseek", h), "hub", "vault.md"),
+    presentMarker: (h) => agentHome("deepseek", h),
+  },
   ...([
     ["opencode", "OpenCode", "opencode"], ["gemini", "Gemini CLI", "gemini"],
     ["cline", "Cline", "cline"], ["roo", "Roo Code（已归档）", ""],
@@ -238,6 +254,7 @@ export function agentInstallationEvidence(id: AgentId, home = homedir()) {
     workbuddy: ["config.json", "sessions"],
     zcode: ["v2", "cli"], grokbot: ["settings.json", ".grokbot-data-root-v1"],
     doubao: ["chats"], kimi: ["config.toml", "session_index.jsonl", "sessions"],
+    deepseek: ["profiles", "sessions", "storages", "settings.yaml", ".credentials.yaml"],
   } as Partial<Record<AgentId, string[]>>)[id] ?? ["config.json", "config.yaml", "config.toml", "sessions"];
 
   const profileEvidence = runtimeMarkers.some(name => fsSync.existsSync(path.join(agentHome(id, home), name)));
@@ -281,5 +298,5 @@ export function adapterCommand(id: AgentId): string {
 export function supportsSessions(id: AgentId): boolean {
   return ["grok", "cursor", "codex", "hyper", "hermes", "claude"].includes(id);
 }
-export function supportsHandoff(id: AgentId): boolean { return !adapter(id).memoryOnly; }
-export function supportsVault(id: AgentId): boolean { return !adapter(id).memoryOnly; }
+export function supportsHandoff(id: AgentId): boolean { const ad = adapter(id); return ad.handoff ?? !ad.memoryOnly; }
+export function supportsVault(id: AgentId): boolean { const ad = adapter(id); return ad.vault ?? !ad.memoryOnly; }

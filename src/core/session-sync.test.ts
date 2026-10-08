@@ -286,3 +286,65 @@ test("acceptSnapshot reloads the sessions page only when indexedAt changes", asy
   assert.deepEqual(calls.notice, ["banner.diskChanged"]);
   assert.equal(calls.load, 1);
 });
+
+test("scheduler reports failures and recovery, skips overlap and does not report lock skips as success", async () => {
+  let mode = "fail";
+  let release: (() => void) | undefined;
+  let calls = 0;
+  const sync = startSessionSync({ quietMs: 5, capMs: 10_000, initial: true, run: async () => {
+    calls++;
+    if (mode === "fail") throw new Error("test offline");
+    if (mode === "skip") return { skipped: true };
+    await new Promise<void>(resolve => { release = resolve; });
+    return { skipped: false };
+  } });
+  try {
+    await delay(20);
+    assert.equal(sync.status().error, "test offline");
+    assert.equal(sync.status().lastSuccessAt, null);
+    mode = "skip"; sync.notify(); await delay(20);
+    assert.equal(sync.status().skipped, true);
+    assert.equal(sync.status().lastSuccessAt, null);
+    mode = "ok"; sync.notify(); await delay(20);
+    assert.equal(sync.status().running, true);
+    const before = calls;
+    sync.notify(); await delay(20);
+    assert.equal(calls, before);
+    release!(); await delay(10);
+    assert.equal(sync.status().error, null);
+    assert.ok(sync.status().lastSuccessAt);
+    assert.equal(sync.status().running, false);
+  } finally { release?.(); await sync.stop(); }
+});
+
+test("stopping session sync drains its in-flight scan before returning", async () => {
+  let release: (() => void) | undefined;
+  let calls = 0;
+  const sync = startSessionSync({ quietMs: 1, capMs: 10_000, initial: true, run: async () => {
+    calls++;
+    await new Promise<void>(resolve => { release = resolve; });
+  } });
+  let stopped = false;
+  const stopping = sync.stop().then(() => { stopped = true; });
+  await delay(5);
+  assert.equal(stopped, false);
+  assert.equal(sync.status().running, true);
+  sync.notify();
+  release!();
+  await stopping;
+  assert.equal(sync.status().running, false);
+  await delay(5);
+  assert.equal(calls, 1);
+});
+
+test("startup lock contention retries without waiting for the fallback scan", async () => {
+  let calls = 0;
+  const sync = startSessionSync({ quietMs: 5, capMs: 10_000, initial: true, run: async () => ({ skipped: ++calls < 2 }) });
+  try {
+    const end = Date.now() + 500;
+    while (!sync.status().lastSuccessAt && Date.now() < end) await delay(5);
+    assert.equal(calls, 2);
+    assert.ok(sync.status().lastSuccessAt);
+    assert.equal(sync.status().skipped, false);
+  } finally { await sync.stop(); }
+});

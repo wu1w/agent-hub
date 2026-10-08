@@ -1,6 +1,6 @@
 {
   "name": "agent-hub",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "本机多 Agent 资产控制面",
@@ -15,7 +15,8 @@
     "test:mutation:dry": "stryker run --dryRunOnly && stryker run stryker.server.json --dryRunOnly",
     "typecheck": "tsc --noEmit",
     "check:web": "node --check web/app.js && node --check web/i18n.js && node --check web/errors.js && node --check web/vault-draft.js && node scripts/check-error-pairs.mjs",
-    "crap": "node scripts/crap-score.mjs"
+    "crap": "node scripts/crap-score.mjs",
+    "package:mac": "node scripts/build-macos.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -29,6 +30,7 @@
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/tap-runner": "^10.0.0",
     "@types/node": "^22.18.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }

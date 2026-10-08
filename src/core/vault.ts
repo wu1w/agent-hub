@@ -363,6 +363,7 @@ export function vaultEnvVars(got: { id: string; fields: VaultField[] }): Record<
 }
 
 export async function vaultEnvForAgent(agent: AgentId): Promise<Record<string, string>> {
+  if (!supportsVault(agent)) throw new HubError(`${agent} 尚不支持 Vault`, 400);
   const items = await vaultCatalogFor(agent);
   const env: Record<string, string> = {};
   for (const item of items) {
@@ -372,6 +373,7 @@ export async function vaultEnvForAgent(agent: AgentId): Promise<Record<string, s
 }
 
 export function vaultExecArgv(agent: AgentId, command: string[]): string[] {
+  if (!supportsVault(agent)) throw new HubError(`${agent} 尚不支持 Vault`, 400);
   return ["hub", "vault", "exec", "--for", agent, "--", ...command];
 }
 

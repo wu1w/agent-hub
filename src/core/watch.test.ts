@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { ensureHub, hubPaths } from "./config.ts";
+import { ensureHub, hubPaths, loadConfig, saveConfig } from "./config.ts";
 import { writeText } from "./fsx.ts";
 import { closeSessionIndex } from "./sessions.ts";
 import { diskEpoch, noteDiskChange, startHubWatch, stopHubWatch } from "./watch.ts";
@@ -90,6 +90,72 @@ test("recursive watch bumps diskEpoch after the debounce", async () => {
     const before = diskEpoch();
     await writeText(path.join(hubPaths().skills, "nested", "demo", "SKILL.md"), "# nested\n");
     assert.equal(await waitFor(() => diskEpoch() > before, 3000), true);
+  } finally {
+    stop();
+  }
+});
+
+test("authoritative asset edits notify, including nested sources and atomic config replacement", async () => {
+  let changes = 0;
+  const stop = await startHubWatch({ onAssetChange: () => { changes += 1; } });
+  const p = hubPaths();
+  try {
+    for (const [file, content] of [
+      [p.memoryGlobal, "# updated global\n"],
+      [path.join(p.memoryProjects, "example.md"), "# updated project\n"],
+      [p.userMd, "# updated user\n"],
+      [path.join(p.skills, "new", "nested", "SKILL.md"), "# new skill\n"],
+      [path.join(p.memory, "inject-state.json"), '{"scopes":[]}'],
+    ]) {
+      const before = changes;
+      await writeText(file!, content!);
+      assert.equal(await waitFor(() => changes > before, 3000), true, file);
+    }
+    // Config saves replace the inode. Both the replacement and a later edit must notify.
+    const currentConfig = await fs.readFile(p.config, "utf8");
+    const beforeReplace = changes;
+    const replacement = path.join(p.root, "replacement.toml");
+    await fs.writeFile(replacement, currentConfig);
+    await fs.rename(replacement, p.config);
+    assert.equal(await waitFor(() => changes > beforeReplace, 3000), true);
+    const beforeNextEdit = changes;
+    await fs.appendFile(p.config, "\n# external edit\n");
+    assert.equal(await waitFor(() => changes > beforeNextEdit, 3000), true);
+  } finally {
+    stop();
+  }
+});
+
+test("Own targets and generated projections do not notify assets; session notifications stay independent", async () => {
+  const config = await loadConfig();
+  config.agents.enabled = ["grok"];
+  config.bind.grok.skills = "own";
+  await saveConfig(config);
+  const ownSkills = path.join(home, ".grok", "skills");
+  await fs.mkdir(ownSkills, { recursive: true });
+  const p = hubPaths();
+  await fs.mkdir(path.join(p.memory, "exports"), { recursive: true });
+  let assets = 0, sessions = 0;
+  const stop = await startHubWatch({
+    onAssetChange: () => { assets += 1; },
+    onSessionChange: () => { sessions += 1; },
+  });
+  try {
+    const before = diskEpoch();
+    await writeText(path.join(ownSkills, "local", "SKILL.md"), "# local\n");
+    await writeText(path.join(p.memory, "autoload.json"), "{}\n");
+    await writeText(path.join(p.memory, "exports", "doubao.md"), "# export\n");
+    await writeText(path.join(p.sessions, "handoff", "example.md"), "# handoff\n");
+    assert.equal(await waitFor(() => diskEpoch() > before, 3000), true);
+    assert.equal(assets, 0);
+    assert.equal(sessions, 0);
+    await writeText(path.join(home, ".grok", "sessions", "new.json"), "{}\n");
+    assert.equal(await waitFor(() => sessions > 0, 3000), true);
+    assert.equal(assets, 0);
+    stop();
+    await fs.appendFile(p.memoryGlobal, "\n# after stop\n");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    assert.equal(assets, 0);
   } finally {
     stop();
   }
